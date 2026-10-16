@@ -109,3 +109,25 @@ describe('SettingsForm', () => {
     expect(hint()).toBe('');
   });
 });
+
+@Component({
+  imports: [SettingsForm],
+  template: `<app-settings-form [(settings)]="settings" [extraHint]="extra()" />`,
+})
+class ExtraHintHost {
+  readonly settings = signal<Settings>({ ...DEFAULT_SETTINGS });
+  readonly extra = signal<string | null>('No audio output available');
+}
+
+describe('SettingsForm extraHint', () => {
+  it('shows the extra hint when settings are valid, validation message otherwise', async () => {
+    const fixture = TestBed.createComponent(ExtraHintHost);
+    const el = fixture.nativeElement as HTMLElement;
+    const hint = () => el.querySelector('.hint')?.textContent?.trim();
+    await fixture.whenStable();
+    expect(hint()).toBe('No audio output available');
+    fixture.componentInstance.settings.set({ ...DEFAULT_SETTINGS, step: null });
+    await fixture.whenStable();
+    expect(hint()).toBe('All fields need a whole number above 0');
+  });
+});

@@ -1,3 +1,14 @@
-<main class="idle">
-  <app-settings-form [(settings)]="settings" (start)="onStart()" />
-</main>
+@if (session.status() === 'playing') {
+  <main class="playing">
+    <app-settings-strip [settings]="session.settings()" (stop)="onStop()" />
+  </main>
+} @else {
+  <main class="idle">
+    <app-settings-form
+      [settings]="session.settings()"
+      (settingsChange)="onSettingsChange($event)"
+      [extraHint]="session.audioError()"
+      (start)="onStart()"
+    />
+  </main>
+}

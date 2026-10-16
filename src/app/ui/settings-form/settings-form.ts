@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, model, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, model, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Settings, validate } from '../../core/settings';
 
@@ -19,6 +19,8 @@ export class SettingsForm {
   readonly settings = model.required<Settings>();
   /** Emitted when the user presses Start with valid Settings. */
   readonly start = output<void>();
+  /** A message from outside the form (e.g. audio failure), shown when Settings are valid. */
+  readonly extraHint = input<string | null>(null);
 
   protected readonly fields: readonly Field[] = [
     { key: 'startBpm', label: 'Start BPM' },
@@ -30,7 +32,7 @@ export class SettingsForm {
   protected readonly validation = computed(() => validate(this.settings()));
   protected readonly hint = computed(() => {
     const result = this.validation();
-    return result.ok ? '' : result.message;
+    return result.ok ? (this.extraHint() ?? '') : result.message;
   });
 
   protected update(key: keyof Settings, value: number | string | null): void {

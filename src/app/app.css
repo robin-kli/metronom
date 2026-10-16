@@ -11,3 +11,9 @@
   min-height: inherit;
   padding: var(--space-4);
 }
+
+.playing {
+  display: flex;
+  flex-direction: column;
+  min-height: inherit;
+}
