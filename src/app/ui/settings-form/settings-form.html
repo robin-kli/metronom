@@ -1,0 +1,21 @@
+<div class="fields">
+  @for (field of fields; track field.key) {
+    <label class="field">
+      <span class="label">{{ field.label }}</span>
+      <input
+        type="number"
+        inputmode="numeric"
+        min="1"
+        step="1"
+        [name]="field.key"
+        aria-describedby="settings-hint"
+        [ngModel]="settings()[field.key]"
+        (ngModelChange)="update(field.key, $event)"
+      />
+    </label>
+  }
+</div>
+
+<button type="button" class="start" [disabled]="!validation().ok" (click)="onStart()">Start</button>
+
+<p id="settings-hint" class="hint" aria-live="polite">{{ hint() }}</p>

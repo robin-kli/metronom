@@ -21,6 +21,7 @@ dist/
 build/
 .vite/
 .cache/
+.angular/
 coverage/
 *.tsbuildinfo
 npm-debug.log*
