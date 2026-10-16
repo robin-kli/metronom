@@ -44,3 +44,6 @@ Thumbs.db
 .sync_*.db*
 .nextcloudsync.log
 *conflicted copy*
+
+# ── Packaging ─────────────────────────────────────────
+release/

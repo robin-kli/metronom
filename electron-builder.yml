@@ -1,0 +1,24 @@
+# Packages metronom as a single Linux AppImage (x64). Run via `npm run package`.
+appId: dev.metronom.app
+productName: metronom
+directories:
+  output: release
+# Keep the dist/electron <-> dist/metronom/browser layout electron/main.ts expects.
+files:
+  - package.json
+  - dist/electron/**
+  - dist/metronom/browser/**
+  # Angular and its runtime deps are bundled into dist/metronom/browser; ship no node_modules.
+  - '!node_modules/**'
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+  # Main category AudioVideo plus the additional Audio category (Categories=AudioVideo;Audio;).
+  category: AudioVideo;Audio
+artifactName: metronom-${version}-${arch}.AppImage
+publish: null
+appImage:
+  # electron-builder defaults the desktop entry to `AppRun --no-sandbox %U`; keep the Chromium sandbox on.
+  executableArgs: []

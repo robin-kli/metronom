@@ -1,6 +1,8 @@
 {
   "name": "metronom",
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "A desktop metronome that ramps the tempo up while you practice.",
+  "author": "Robin Klimczak",
   "main": "dist/electron/main.js",
   "scripts": {
     "ng": "ng",
@@ -10,7 +12,9 @@
     "test": "ng test",
     "build:electron": "tsc -p tsconfig.electron.json",
     "desktop": "ng build && npm run build:electron && electron .",
-    "desktop:smoke": "ng build && npm run build:electron && electron . --smoke"
+    "desktop:smoke": "ng build && npm run build:electron && electron . --smoke",
+    "package": "node -e \"for (const d of ['dist/electron', 'release']) require('fs').rmSync(d, { recursive: true, force: true })\" && ng build && npm run build:electron && electron-builder --linux AppImage && npm run package:verify",
+    "package:verify": "node scripts/verify-package.mjs"
   },
   "private": true,
   "packageManager": "npm@11.19.1",
@@ -29,6 +33,7 @@
     "@angular/compiler-cli": "^22.2.0",
     "@types/node": "^24.19.2",
     "electron": "~44.8.0",
+    "electron-builder": "~26.15.0",
     "jsdom": "^30.0.0",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",

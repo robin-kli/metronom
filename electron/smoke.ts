@@ -8,6 +8,8 @@ interface SmokeOptions {
   appOrigin: string;
   /** Filled by the main process with every non-app request it cancelled. */
   blockedRequests: readonly string[];
+  /** False when started with --no-sandbox. Reported only; not part of `ok`. */
+  sandboxed: boolean;
 }
 
 const FORM_TIMEOUT_MS = 15_000;
@@ -16,7 +18,10 @@ const NAVIGATION_SETTLE_MS = 1_000;
 const POLL_MS = 100;
 
 /** Must stay synchronous until listeners are attached: the caller loads the page right after. */
-export async function runSmoke(win: BrowserWindow, { appOrigin, blockedRequests }: SmokeOptions) {
+export async function runSmoke(
+  win: BrowserWindow,
+  { appOrigin, blockedRequests, sandboxed }: SmokeOptions,
+) {
   const deadline = setTimeout(() => {
     process.stdout.write(`${JSON.stringify({ ok: false, error: 'smoke deadline exceeded' })}\n`);
     app.exit(1);
@@ -89,6 +94,7 @@ export async function runSmoke(win: BrowserWindow, { appOrigin, blockedRequests 
   const title = win.getTitle();
 
   const result = {
+    sandboxed,
     formRendered,
     title,
     rendererIsolated,

@@ -18,6 +18,15 @@ const APP_URL = `${APP_ORIGIN}/index.html`;
 /** Compiled to dist/electron/main.js, so the Angular build sits next to it. */
 const BUILD_DIR = path.resolve(__dirname, '..', 'metronom', 'browser');
 const SMOKE = process.argv.includes('--smoke');
+/** The AppImage launcher adds `--no-sandbox` by itself when user namespaces are blocked. */
+const SANDBOXED = !process.argv.includes('--no-sandbox');
+
+if (!SANDBOXED) {
+  console.warn(
+    'metronom: WARNING: running WITHOUT the Chromium sandbox (--no-sandbox). ' +
+      'On Ubuntu 24.04 install the AppArmor profile described in the README.',
+  );
+}
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -149,7 +158,8 @@ app
     sealSession();
     const win = createWindow();
     // The smoke run attaches its listeners before the page starts loading.
-    if (SMOKE) runSmoke(win, { appOrigin: APP_ORIGIN, blockedRequests }).catch(fail);
+    if (SMOKE)
+      runSmoke(win, { appOrigin: APP_ORIGIN, blockedRequests, sandboxed: SANDBOXED }).catch(fail);
     return win.loadURL(APP_URL);
   })
   .catch(fail);
