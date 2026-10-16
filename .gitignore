@@ -18,7 +18,8 @@ __pycache__/
 # ── Node / web build ──────────────────────────────────
 node_modules/
 dist/
-build/
+build/*
+!build/icon.png
 .vite/
 .cache/
 .angular/

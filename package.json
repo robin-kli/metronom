@@ -14,7 +14,9 @@
     "desktop": "ng build && npm run build:electron && electron .",
     "desktop:smoke": "ng build && npm run build:electron && electron . --smoke",
     "package": "node -e \"for (const d of ['dist/electron', 'release']) require('fs').rmSync(d, { recursive: true, force: true })\" && ng build && npm run build:electron && electron-builder --linux AppImage && npm run package:verify",
-    "package:verify": "node scripts/verify-package.mjs"
+    "package:verify": "node scripts/verify-package.mjs",
+    "icon": "node scripts/make-icon.mjs",
+    "install:desktop": "bash scripts/install-desktop.sh"
   },
   "private": true,
   "packageManager": "npm@11.19.1",
@@ -41,5 +43,6 @@
   },
   "engines": {
     "node": ">=24.15"
-  }
+  },
+  "desktopName": "metronom.desktop"
 }

@@ -76,6 +76,17 @@ chmod +x ~/Applications/metronom.AppImage
 The AppImage needs neither Node nor this repository. Add `--smoke` to run the headless self-check
 against the packaged app.
 
+### Launcher and desktop icon
+
+```sh
+npm run install:desktop
+```
+
+This does the copy above for you and adds metronom with its icon to the app menu
+(`~/.local/share/applications/metronom.desktop`) and to the desktop (marked as trusted, so GNOME
+launches it on double-click). Run it again after each `npm run package` to update the installed app.
+The icon is `build/icon.png`; regenerate it with `npm run icon`.
+
 ## Ubuntu 24.04 sandbox note
 
 Ubuntu 24.04 blocks unprivileged user namespaces (`kernel.apparmor_restrict_unprivileged_userns=1`),
