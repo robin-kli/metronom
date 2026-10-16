@@ -1,6 +1,12 @@
 @if (session.status() === 'playing') {
   <main class="playing">
     <app-settings-strip [settings]="session.settings()" (stop)="onStop()" />
+    <app-beat-display
+      class="display"
+      [event]="session.current()"
+      [startBpm]="session.settings().startBpm ?? 0"
+      [step]="session.settings().step ?? 0"
+    />
   </main>
 } @else {
   <main class="idle">

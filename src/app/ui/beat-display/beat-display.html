@@ -1,0 +1,13 @@
+<p class="bpm" aria-hidden="true"><span class="bpm-value">{{ bpm() }}</span><span class="bpm-label">BPM</span></p>
+<div class="blocks" aria-hidden="true">
+  @for (beat of beats; track beat) {
+    <div
+      class="block"
+      [class.accent]="beat === 1"
+      [class.lit]="beat === litBeat()"
+      [attr.data-beat]="beat"
+    ></div>
+  }
+</div>
+<p class="status">{{ status() }}</p>
+<p class="visually-hidden" aria-live="polite">{{ announcement() }}</p>

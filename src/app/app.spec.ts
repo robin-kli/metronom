@@ -1,15 +1,20 @@
 import { TestBed } from '@angular/core/testing';
 import { App } from './app';
+import { BeatEvent } from './core/beat-event';
 import { SESSION_PLATFORM, SessionPlatform } from './session/session-platform';
 import { SessionService } from './session/session.service';
 
 describe('App', () => {
   let stops: number;
   let failResume: boolean;
+  let onEvent: ((event: BeatEvent) => void) | null;
+  let frame: (() => void) | null;
 
   beforeEach(async () => {
     stops = 0;
     failResume = false;
+    onEvent = null;
+    frame = null;
     const platform: SessionPlatform = {
       createAudioContext: () => ({
         currentTime: 0,
@@ -18,8 +23,16 @@ describe('App', () => {
         },
         suspend: async () => undefined,
       }),
-      createScheduler: () => ({ start: () => undefined, stop: () => stops++ }),
-      requestAnimationFrame: () => 1,
+      createScheduler: () => ({
+        start: (_settings, cb) => {
+          onEvent = cb;
+        },
+        stop: () => stops++,
+      }),
+      requestAnimationFrame: (cb) => {
+        frame = cb;
+        return 1;
+      },
       cancelAnimationFrame: () => undefined,
     };
     await TestBed.configureTestingModule({
@@ -53,6 +66,15 @@ describe('App', () => {
     expect(el.querySelector('.summary')?.textContent?.trim()).toBe(
       '80 → 120 BPM · +5 every 4 bars',
     );
+    expect(el.querySelector('app-beat-display .bpm-value')?.textContent?.trim()).toBe('80');
+    expect(el.querySelector('.block.lit')).toBeNull();
+
+    onEvent!({ audioTime: 0, beat: 1, barIndex: 0, tempo: 85, hold: false, barsToNext: 4 });
+    frame!();
+    await fixture.whenStable();
+    expect(el.querySelector('.block.lit')?.getAttribute('data-beat')).toBe('1');
+    expect(el.querySelector('app-beat-display .bpm-value')?.textContent?.trim()).toBe('85');
+    expect(el.querySelector('app-beat-display .status')?.textContent?.trim()).toBe('4 bars to +5');
 
     (el.querySelector('button.stop') as HTMLButtonElement).click();
     await fixture.whenStable();
