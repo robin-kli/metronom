@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 10-16-2026 17:46
-last_updated: 10-16-2026 18:13
+last_updated: 10-16-2026 18:28
 project: metronom
 project_key: NOKEY
 tracking_system: file-system
@@ -42,7 +42,7 @@ development_status:
   1-4-control-playback-from-the-keyboard: review
   epic-1-retrospective: optional
 
-  epic-2: backlog
-  2-1-open-metronom-in-its-own-desktop-window: backlog
+  epic-2: in-progress
+  2-1-open-metronom-in-its-own-desktop-window: review
   2-2-install-metronom-from-a-single-appimage: backlog
   epic-2-retrospective: optional

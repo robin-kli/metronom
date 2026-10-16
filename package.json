@@ -1,12 +1,16 @@
 {
   "name": "metronom",
   "version": "0.0.0",
+  "main": "dist/electron/main.js",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "desktop": "ng build && npm run build:electron && electron .",
+    "desktop:smoke": "ng build && npm run build:electron && electron . --smoke"
   },
   "private": true,
   "packageManager": "npm@11.19.1",
@@ -23,6 +27,8 @@
     "@angular/build": "^22.2.3",
     "@angular/cli": "^22.2.3",
     "@angular/compiler-cli": "^22.2.0",
+    "@types/node": "^24.19.2",
+    "electron": "~44.8.0",
     "jsdom": "^30.0.0",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",

@@ -1,0 +1,17 @@
+/* Compiles the Electron main process (electron/) only. The Angular build never sees it. */
+{
+  "compilerOptions": {
+    "strict": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "target": "ES2023",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "types": ["node"],
+    "rootDir": "electron",
+    "outDir": "dist/electron",
+    "sourceMap": false
+  },
+  "include": ["electron/**/*.ts"]
+}
