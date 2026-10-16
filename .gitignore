@@ -1,0 +1,45 @@
+# ── BMAD ──────────────────────────────────────────────
+# Committed: _bmad/ team config, manifests, scripts, custom/config.toml,
+# .claude/skills/, and _bmad-output/ (planning + implementation artifacts).
+# Ignored: personal install answers and generated/cache files.
+_bmad/config.user.toml
+_bmad/**/*.user.toml
+# (_bmad/render/ and _bmad/custom/ carry their own .gitignore)
+
+# ── Claude Code ───────────────────────────────────────
+.claude/settings.local.json
+CLAUDE.local.md
+
+# ── Python (BMAD scripts) ─────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+
+# ── Node / web build ──────────────────────────────────
+node_modules/
+dist/
+build/
+.vite/
+.cache/
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── Env ───────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Editor / OS / sync ────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+.sync_*.db*
+.nextcloudsync.log
+*conflicted copy*
