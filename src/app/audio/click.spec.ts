@@ -60,8 +60,28 @@ class FakeContext {
 }
 
 describe('scheduleClick', () => {
-  const schedule = (ctx: FakeContext, time: number, accent: boolean) =>
-    scheduleClick(ctx as unknown as BaseAudioContext, time, accent);
+  const schedule = (ctx: FakeContext, time: number, accent: boolean, countIn = false) =>
+    scheduleClick(ctx as unknown as BaseAudioContext, time, accent, countIn);
+
+  it('plays the count-in as a triangle wave at lower pitches, beat 1 still higher', () => {
+    const ctx = new FakeContext();
+    schedule(ctx, 1, true);
+    schedule(ctx, 2, false);
+    schedule(ctx, 3, true, true);
+    schedule(ctx, 4, false, true);
+    const [accent, beat, countAccent, countBeat] = ctx.oscillators;
+    expect(accent.type).toBe('square');
+    expect(beat.type).toBe('square');
+    expect(countAccent.type).toBe('triangle');
+    expect(countBeat.type).toBe('triangle');
+    expect(countAccent.frequency.value).toBeLessThan(beat.frequency.value);
+    expect(countBeat.frequency.value).toBeLessThan(beat.frequency.value);
+    expect(countAccent.frequency.value).toBeGreaterThan(countBeat.frequency.value);
+    // Same envelope style as the normal click.
+    expect(ctx.gains[2].gain.calls.map((c) => c[0])).toEqual(
+      ctx.gains[0].gain.calls.map((c) => c[0]),
+    );
+  });
 
   it('plays the accent at a higher pitch than a normal beat', () => {
     const ctx = new FakeContext();

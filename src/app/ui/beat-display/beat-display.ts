@@ -26,6 +26,9 @@ export class BeatDisplay {
     if (!event) {
       return '';
     }
+    if (event.countIn) {
+      return 'Count-in';
+    }
     if (event.hold) {
       return `Holding at ${event.tempo} BPM`;
     }
@@ -33,9 +36,12 @@ export class BeatDisplay {
     return `${event.barsToNext} ${bars} to +${this.step()}`;
   });
 
-  /** Changes only when the tempo does, so each tempo is announced once. */
+  /** Changes only when the tempo or count-in state does, so each is announced once. */
   protected readonly announcement = computed(() => {
-    const tempo = this.event()?.tempo;
-    return tempo === undefined ? '' : `${tempo} BPM`;
+    const event = this.event();
+    if (!event) {
+      return '';
+    }
+    return event.countIn ? `Count-in, ${event.tempo} BPM` : `${event.tempo} BPM`;
   });
 }

@@ -10,3 +10,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-2-install-metronom-from-a-single-appimage.md`
   summary: electron-builder's AppRun adds --no-sandbox when `unshare -Ur` fails, so the AppImage runs unsandboxed until the AppArmor profile is installed.
   evidence: Reproduced on Ubuntu 24.04; app now warns and reports "sandboxed": false. Fix needs AppRun patching or the user installing the README profile.
+- source_spec: `_bmad-output/implementation-artifacts/spec-count-in.md`
+  summary: Add a Scheduler + real scheduleClick integration test so the `as unknown as ClickFn` cast cannot hide parameter-order drift.
+  evidence: maybe-false (medium if true) — signatures match today; settle with a recording fake context test in scheduler.spec.ts.

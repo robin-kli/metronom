@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { App } from './app';
+import { Scheduler, SchedulerOptions } from './audio/scheduler';
 import { BeatEvent } from './core/beat-event';
 import { SESSION_PLATFORM, SessionPlatform } from './session/session-platform';
 import { SessionService } from './session/session.service';
@@ -9,6 +10,7 @@ describe('App', () => {
   let starts: number;
   let failResume: boolean;
   let onEvent: ((event: BeatEvent) => void) | null;
+  let startOptions: (SchedulerOptions | undefined)[];
   let frame: (() => void) | null;
 
   beforeEach(async () => {
@@ -16,6 +18,7 @@ describe('App', () => {
     starts = 0;
     failResume = false;
     onEvent = null;
+    startOptions = [];
     frame = null;
     const platform: SessionPlatform = {
       createAudioContext: () => ({
@@ -26,8 +29,9 @@ describe('App', () => {
         suspend: async () => undefined,
       }),
       createScheduler: () => ({
-        start: (_settings, cb) => {
+        start: (_settings, cb, options) => {
           starts++;
+          startOptions.push(options);
           onEvent = cb;
         },
         stop: () => stops++,
@@ -67,12 +71,20 @@ describe('App', () => {
     await fixture.whenStable();
     expect(el.querySelector('app-settings-form')).toBeNull();
     expect(el.querySelector('.summary')?.textContent?.trim()).toBe(
-      '80 → 120 BPM · +5 every 4 bars',
+      '80 → 120 BPM · +5 every 4 bars · count-in',
     );
     expect(el.querySelector('app-beat-display .bpm-value')?.textContent?.trim()).toBe('80');
     expect(el.querySelector('.block.lit')).toBeNull();
 
-    onEvent!({ audioTime: 0, beat: 1, barIndex: 0, tempo: 85, hold: false, barsToNext: 4 });
+    onEvent!({
+      audioTime: 0,
+      beat: 1,
+      barIndex: 0,
+      tempo: 85,
+      hold: false,
+      barsToNext: 4,
+      countIn: false,
+    });
     frame!();
     await fixture.whenStable();
     expect(el.querySelector('.block.lit')?.getAttribute('data-beat')).toBe('1');
@@ -89,6 +101,88 @@ describe('App', () => {
       '5',
       '4',
     ]);
+  });
+
+  it('opens with the Count-in switch on and starts with a count-in', async () => {
+    const fixture = TestBed.createComponent(App);
+    const el = fixture.nativeElement as HTMLElement;
+    await fixture.whenStable();
+    expect(el.querySelector('button.count-in')?.getAttribute('aria-checked')).toBe('true');
+    (el.querySelector('button.start') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r));
+    await fixture.whenStable();
+    expect(startOptions).toEqual([{ countIn: true }]);
+    expect(el.querySelector('.summary')?.textContent?.trim()).toBe(
+      '60 → 120 BPM · +5 every 4 bars · count-in',
+    );
+    onEvent!({
+      audioTime: 0,
+      beat: 1,
+      barIndex: -1,
+      tempo: 60,
+      hold: false,
+      barsToNext: 0,
+      countIn: true,
+    });
+    frame!();
+    await fixture.whenStable();
+    expect(el.querySelector('app-beat-display .status')?.textContent?.trim()).toBe('Count-in');
+    expect(el.querySelector('app-beat-display .bpm-value')?.textContent?.trim()).toBe('60');
+  });
+
+  it('with the switch off, the first published event is a ramp beat', async () => {
+    // Real scheduler on a fake clock, so the toggle's effect on what is published is end-to-end.
+    const clock = { currentTime: 0 };
+    const timer: { tick: (() => void) | null } = { tick: null };
+    const real = new Scheduler(
+      clock,
+      {
+        setTimeout: (fn) => {
+          timer.tick = fn;
+          return 1;
+        },
+        clearTimeout: () => (timer.tick = null),
+      },
+      () => ({ cancel: () => undefined }),
+    );
+    const raf: { publish: (() => void) | null } = { publish: null };
+    TestBed.overrideProvider(SESSION_PLATFORM, {
+      useValue: {
+        createAudioContext: () => ({
+          get currentTime() {
+            return clock.currentTime;
+          },
+          resume: async () => undefined,
+          suspend: async () => undefined,
+        }),
+        createScheduler: () => real,
+        requestAnimationFrame: (cb: () => void) => {
+          raf.publish = cb;
+          return 1;
+        },
+        cancelAnimationFrame: () => undefined,
+      } satisfies SessionPlatform,
+    });
+    const fixture = TestBed.createComponent(App);
+    const el = fixture.nativeElement as HTMLElement;
+    await fixture.whenStable();
+    (el.querySelector('button.count-in') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(el.querySelector('button.count-in')?.getAttribute('aria-checked')).toBe('false');
+    (el.querySelector('button.start') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r));
+    await fixture.whenStable();
+    expect(el.querySelector('.summary')?.textContent?.trim()).toBe(
+      '60 → 120 BPM · +5 every 4 bars',
+    );
+    clock.currentTime = 0.06;
+    timer.tick?.();
+    raf.publish?.();
+    await fixture.whenStable();
+    const session = TestBed.inject(SessionService);
+    expect(session.current()).toMatchObject({ barIndex: 0, beat: 1, countIn: false });
+    expect(el.querySelector('app-beat-display .status')?.textContent?.trim()).toBe('4 bars to +5');
+    session.stop();
   });
 
   it('keeps the form and shows the audio error when audio fails', async () => {
@@ -159,6 +253,18 @@ describe('App', () => {
       expect(event.defaultPrevented).toBe(true);
       expect(session.status()).toBe('playing');
       expect(session.settings().ceilingBpm).toBe(120);
+      expect(starts).toBe(1);
+    });
+
+    it('Space on the focused Count-in switch starts playback and does not toggle it', async () => {
+      const { el, session, settle } = await setup();
+      const toggle = el.querySelector('button.count-in') as HTMLButtonElement;
+      toggle.focus();
+      const event = key(toggle, ' ');
+      await settle();
+      expect(event.defaultPrevented).toBe(true);
+      expect(session.status()).toBe('playing');
+      expect(session.countIn()).toBe(true);
       expect(starts).toBe(1);
     });
 

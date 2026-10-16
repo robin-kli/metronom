@@ -17,6 +17,8 @@ interface Field {
 export class SettingsForm {
   /** The four ramp Settings, two-way bound to the parent. */
   readonly settings = model.required<Settings>();
+  /** Whether the Session starts with a count-in, two-way bound to the parent. */
+  readonly countIn = model.required<boolean>();
   /** Emitted when the user presses Start with valid Settings. */
   readonly start = output<void>();
   /** A message from outside the form (e.g. audio failure), shown when Settings are valid. */
@@ -39,6 +41,10 @@ export class SettingsForm {
     // NumberValueAccessor yields a number, or null for an empty/unparseable field.
     const parsed = typeof value === 'number' && !Number.isNaN(value) ? value : null;
     this.settings.update((current) => ({ ...current, [key]: parsed }));
+  }
+
+  protected toggleCountIn(): void {
+    this.countIn.update((on) => !on);
   }
 
   protected onStart(): void {

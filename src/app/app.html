@@ -1,6 +1,10 @@
 @if (session.status() === 'playing') {
   <main class="playing">
-    <app-settings-strip [settings]="session.settings()" (stop)="onStop()" />
+    <app-settings-strip
+      [settings]="session.settings()"
+      [countIn]="session.countIn()"
+      (stop)="onStop()"
+    />
     <app-beat-display
       class="display"
       [event]="session.current()"
@@ -13,6 +17,8 @@
     <app-settings-form
       [settings]="session.settings()"
       (settingsChange)="onSettingsChange($event)"
+      [countIn]="session.countIn()"
+      (countInChange)="session.setCountIn($event)"
       [extraHint]="session.audioError()"
       (start)="onStart()"
     />

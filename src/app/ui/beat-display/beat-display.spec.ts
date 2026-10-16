@@ -14,7 +14,16 @@ class Host {
 }
 
 function beatEvent(partial: Partial<BeatEvent>): BeatEvent {
-  return { audioTime: 0, beat: 1, barIndex: 0, tempo: 60, hold: false, barsToNext: 4, ...partial };
+  return {
+    audioTime: 0,
+    beat: 1,
+    barIndex: 0,
+    tempo: 60,
+    hold: false,
+    barsToNext: 4,
+    countIn: false,
+    ...partial,
+  };
 }
 
 async function setup(event: BeatEvent | null = null) {
@@ -56,6 +65,28 @@ describe('BeatDisplay', () => {
     expect(lit(el)).toEqual(['3']);
     expect(el.querySelector('.block.lit')?.classList).not.toContain('accent');
     expect(text(el, '.status')).toBe('1 bar to +5');
+  });
+
+  it('during the count-in: block lit as usual, BPM from the event, status "Count-in"', async () => {
+    const { fixture, el } = await setup(
+      beatEvent({ beat: 3, barIndex: -1, tempo: 72, barsToNext: 0, countIn: true }),
+    );
+    fixture.componentInstance.startBpm.set(72);
+    await fixture.whenStable();
+    expect(lit(el)).toEqual(['3']);
+    expect(text(el, '.bpm-value')).toBe('72');
+    expect(text(el, '.status')).toBe('Count-in');
+  });
+
+  it('announces the count-in, then the tempo again when the ramp starts', async () => {
+    const { fixture, el } = await setup(
+      beatEvent({ beat: 1, barIndex: -1, tempo: 60, barsToNext: 0, countIn: true }),
+    );
+    const live = el.querySelector('[aria-live="polite"]') as HTMLElement;
+    expect(live.textContent?.trim()).toBe('Count-in, 60 BPM');
+    fixture.componentInstance.event.set(beatEvent({ beat: 1, barIndex: 0, tempo: 60 }));
+    await fixture.whenStable();
+    expect(live.textContent?.trim()).toBe('60 BPM');
   });
 
   it('in Hold shows the holding copy', async () => {

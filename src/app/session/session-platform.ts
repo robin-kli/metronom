@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import { AudioClock, Scheduler } from '../audio/scheduler';
+import { AudioClock, Scheduler, SchedulerOptions } from '../audio/scheduler';
 import { BeatEvent } from '../core/beat-event';
 import { ValidSettings } from '../core/ramp';
 
@@ -12,7 +12,11 @@ export interface SessionAudioContext extends AudioClock {
 }
 
 export interface SessionScheduler {
-  start(settings: ValidSettings, onBeat: (event: BeatEvent) => void): void;
+  start(
+    settings: ValidSettings,
+    onBeat: (event: BeatEvent) => void,
+    options?: SchedulerOptions,
+  ): void;
   stop(): void;
 }
 

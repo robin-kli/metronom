@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { BeatEvent } from '../core/beat-event';
+import { SchedulerOptions } from '../audio/scheduler';
 import { ValidSettings } from '../core/ramp';
 import { DEFAULT_SETTINGS } from '../core/settings';
 import {
@@ -27,18 +28,20 @@ class FakeContext implements SessionAudioContext {
 
 class FakeScheduler implements SessionScheduler {
   starts: ValidSettings[] = [];
+  options: (SchedulerOptions | undefined)[] = [];
   stops = 0;
   onBeat: ((e: BeatEvent) => void) | null = null;
-  start(settings: ValidSettings, onBeat: (e: BeatEvent) => void): void {
+  start(settings: ValidSettings, onBeat: (e: BeatEvent) => void, options?: SchedulerOptions): void {
     this.starts.push(settings);
+    this.options.push(options);
     this.onBeat = onBeat;
   }
   stop(): void {
     this.stops++;
     this.onBeat = null;
   }
-  emit(audioTime: number, beat: number, barIndex = 0, tempo = 60): void {
-    this.onBeat?.({ audioTime, beat, barIndex, tempo, hold: false, barsToNext: 4 });
+  emit(audioTime: number, beat: number, barIndex = 0, tempo = 60, countIn = false): void {
+    this.onBeat?.({ audioTime, beat, barIndex, tempo, hold: false, barsToNext: 4, countIn });
   }
 }
 
@@ -90,6 +93,46 @@ describe('SessionService', () => {
     expect(service.status()).toBe('playing');
     expect(ctx.resumes).toBe(1);
     expect(scheduler.starts).toEqual([{ startBpm: 80, ceilingBpm: 100, step: 4, interval: 2 }]);
+  });
+
+  it('has the count-in on by default and passes it to the scheduler', async () => {
+    expect(service.countIn()).toBe(true);
+    await service.start();
+    expect(scheduler.options).toEqual([{ countIn: true }]);
+  });
+
+  it('passes count-in off to the scheduler once switched off', async () => {
+    service.setCountIn(false);
+    expect(service.countIn()).toBe(false);
+    await service.start();
+    expect(scheduler.options).toEqual([{ countIn: false }]);
+  });
+
+  it('ignores setCountIn while playing', async () => {
+    await service.start();
+    service.setCountIn(false);
+    expect(service.countIn()).toBe(true);
+  });
+
+  it('accepts setCountIn again after stop', async () => {
+    await service.start();
+    service.stop();
+    service.setCountIn(false);
+    expect(service.countIn()).toBe(false);
+  });
+
+  it('stop during the count-in returns to idle and keeps the count-in setting', async () => {
+    await service.start();
+    scheduler.emit(0.05, 1, -1, 60, true);
+    scheduler.emit(1.05, 2, -1, 60, true);
+    ctx.currentTime = 1.1;
+    runFrame();
+    expect(service.current()).toMatchObject({ beat: 2, countIn: true });
+    service.stop();
+    expect(service.status()).toBe('idle');
+    expect(service.current()).toBeNull();
+    expect(scheduler.stops).toBe(1);
+    expect(service.countIn()).toBe(true);
   });
 
   it('refuses invalid settings and stays idle', async () => {

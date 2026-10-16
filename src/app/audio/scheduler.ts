@@ -20,7 +20,17 @@ export interface Timers {
   clearTimeout(handle: unknown): void;
 }
 
-export type ClickFn<C extends AudioClock> = (ctx: C, time: number, accent: boolean) => ClickHandle;
+export type ClickFn<C extends AudioClock> = (
+  ctx: C,
+  time: number,
+  accent: boolean,
+  countIn: boolean,
+) => ClickHandle;
+
+export interface SchedulerOptions {
+  /** Play one bar of four count-in beats at the Start BPM before ramp bar 0. */
+  countIn?: boolean;
+}
 
 const browserTimers: Timers = {
   setTimeout: (fn, ms) => globalThis.setTimeout(fn, ms),
@@ -30,7 +40,8 @@ const browserTimers: Timers = {
 /**
  * Look-ahead scheduler: every ~25 ms it schedules all beats falling within the next ~100 ms
  * on the audio clock. Beat times accumulate `60 / tempo`; tempo comes only from `rampAt()`
- * per Bar, so it can only change on beat 1.
+ * per Bar, so it can only change on beat 1. An optional count-in bar at the Start BPM precedes
+ * ramp bar 0 and never counts towards the ramp.
  */
 export class Scheduler<C extends AudioClock = BaseAudioContext> {
   private timer: unknown = null;
@@ -40,6 +51,7 @@ export class Scheduler<C extends AudioClock = BaseAudioContext> {
   private nextTime = 0;
   private barIndex = 0;
   private beat = 1;
+  private inCountIn = false;
   private pending: { time: number; click: ClickHandle }[] = [];
 
   constructor(
@@ -48,14 +60,19 @@ export class Scheduler<C extends AudioClock = BaseAudioContext> {
     private readonly click: ClickFn<C> = scheduleClick as unknown as ClickFn<C>,
   ) {}
 
-  /** Starts at bar 0, beat 1, shortly after the current audio time. */
-  start(settings: ValidSettings, onBeat: (event: BeatEvent) => void): void {
+  /** Starts at bar 0, beat 1 (or the count-in, if enabled), shortly after the current audio time. */
+  start(
+    settings: ValidSettings,
+    onBeat: (event: BeatEvent) => void,
+    options: SchedulerOptions = {},
+  ): void {
     this.stop();
     this.settings = settings;
     this.onBeat = onBeat;
     this.nextTime = this.ctx.currentTime + START_DELAY_S;
     this.barIndex = 0;
     this.beat = 1;
+    this.inCountIn = options.countIn ?? false;
     this.running = true;
     this.tick();
   }
@@ -85,23 +102,16 @@ export class Scheduler<C extends AudioClock = BaseAudioContext> {
     this.pending = this.pending.filter((p) => p.time > now);
     // After a late tick, skip beats already in the past (no burst), keeping bar counting intact.
     while (this.nextTime < now) {
-      this.nextTime += 60 / rampAt(this.settings, this.barIndex).tempo;
+      this.nextTime += 60 / this.currentBeat(this.settings).tempo;
       this.advanceBeat();
     }
     const horizon = now + LOOKAHEAD_S;
     while (this.nextTime < horizon) {
-      const { tempo, hold, barsToNext } = rampAt(this.settings, this.barIndex);
-      const event: BeatEvent = {
-        audioTime: this.nextTime,
-        beat: this.beat,
-        barIndex: this.barIndex,
-        tempo,
-        hold,
-        barsToNext,
-      };
+      const event = this.currentBeat(this.settings);
+      const tempo = event.tempo;
       this.pending.push({
         time: this.nextTime,
-        click: this.click(this.ctx, this.nextTime, this.beat === 1),
+        click: this.click(this.ctx, this.nextTime, this.beat === 1, this.inCountIn),
       });
       this.onBeat(event);
       this.nextTime += 60 / tempo;
@@ -110,10 +120,40 @@ export class Scheduler<C extends AudioClock = BaseAudioContext> {
     this.timer = this.timers.setTimeout(() => this.tick(), TICK_MS);
   }
 
+  /** The BeatEvent for the beat at `nextTime`. */
+  private currentBeat(settings: ValidSettings): BeatEvent {
+    if (this.inCountIn) {
+      return {
+        audioTime: this.nextTime,
+        beat: this.beat,
+        barIndex: -1,
+        tempo: settings.startBpm,
+        hold: false,
+        barsToNext: 0,
+        countIn: true,
+      };
+    }
+    const { tempo, hold, barsToNext } = rampAt(settings, this.barIndex);
+    return {
+      audioTime: this.nextTime,
+      beat: this.beat,
+      barIndex: this.barIndex,
+      tempo,
+      hold,
+      barsToNext,
+      countIn: false,
+    };
+  }
+
   private advanceBeat(): void {
     if (this.beat === BEATS_PER_BAR) {
       this.beat = 1;
-      this.barIndex++;
+      if (this.inCountIn) {
+        // The count-in bar is over; ramp bar 0 follows (barIndex is still 0).
+        this.inCountIn = false;
+      } else {
+        this.barIndex++;
+      }
     } else {
       this.beat++;
     }

@@ -7,10 +7,15 @@ import { SettingsForm } from './settings-form';
 
 @Component({
   imports: [SettingsForm],
-  template: `<app-settings-form [(settings)]="settings" (start)="starts = starts + 1" />`,
+  template: `<app-settings-form
+    [(settings)]="settings"
+    [(countIn)]="countIn"
+    (start)="starts = starts + 1"
+  />`,
 })
 class Host {
   readonly settings = signal<Settings>({ ...DEFAULT_SETTINGS });
+  readonly countIn = signal(true);
   starts = 0;
 }
 
@@ -42,6 +47,32 @@ describe('SettingsForm', () => {
     expect(inputs().map((i) => i.value)).toEqual(['60', '120', '5', '4']);
     expect(button().disabled).toBe(false);
     expect(hint()).toBe('');
+  });
+
+  it('shows a Count-in switch, on, between the fields and Start', () => {
+    const toggle = el.querySelector('button.count-in') as HTMLButtonElement;
+    expect(toggle.type).toBe('button');
+    expect(toggle.getAttribute('role')).toBe('switch');
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    expect(toggle.textContent?.trim()).toBe('Count-in');
+    const order = Array.from(el.querySelector('app-settings-form')!.children).map(
+      (c) => c.className.split(' ')[0],
+    );
+    expect(order.indexOf('count-in')).toBeGreaterThan(order.indexOf('fields'));
+    expect(order.indexOf('count-in')).toBeLessThan(order.indexOf('start'));
+  });
+
+  it('toggles the count-in on click and writes it back, without starting', async () => {
+    const toggle = el.querySelector('button.count-in') as HTMLButtonElement;
+    toggle.click();
+    await fixture.whenStable();
+    expect(fixture.componentInstance.countIn()).toBe(false);
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    toggle.click();
+    await fixture.whenStable();
+    expect(fixture.componentInstance.countIn()).toBe(true);
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    expect(fixture.componentInstance.starts).toBe(0);
   });
 
   it('has a polite live region for the hint', () => {
@@ -112,7 +143,7 @@ describe('SettingsForm', () => {
 
 @Component({
   imports: [SettingsForm],
-  template: `<app-settings-form [(settings)]="settings" [extraHint]="extra()" />`,
+  template: `<app-settings-form [(settings)]="settings" [countIn]="true" [extraHint]="extra()" />`,
 })
 class ExtraHintHost {
   readonly settings = signal<Settings>({ ...DEFAULT_SETTINGS });

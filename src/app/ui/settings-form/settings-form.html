@@ -16,6 +16,17 @@
   }
 </div>
 
+<button
+  type="button"
+  class="count-in"
+  role="switch"
+  [attr.aria-checked]="countIn()"
+  (click)="toggleCountIn()"
+>
+  <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+  <span class="switch-label">Count-in</span>
+</button>
+
 <button type="button" class="start" [disabled]="!validation().ok" (click)="onStart()">Start</button>
 
 <p id="settings-hint" class="hint" aria-live="polite">{{ hint() }}</p>

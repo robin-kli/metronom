@@ -50,7 +50,7 @@ const settings = (
 
 describe('Scheduler', () => {
   let clock: FakeClock;
-  let clicks: { time: number; accent: boolean; cancelled: boolean }[];
+  let clicks: { time: number; accent: boolean; countIn: boolean; cancelled: boolean }[];
   let beats: BeatEvent[];
   let scheduler: Scheduler<FakeClock>;
 
@@ -58,8 +58,8 @@ describe('Scheduler', () => {
     clock = new FakeClock();
     clicks = [];
     beats = [];
-    scheduler = new Scheduler(clock, clock, (_ctx, time, accent) => {
-      const click = { time, accent, cancelled: false };
+    scheduler = new Scheduler(clock, clock, (_ctx, time, accent, countIn) => {
+      const click = { time, accent, countIn, cancelled: false };
       clicks.push(click);
       return { cancel: () => (click.cancelled = true) };
     });
@@ -176,6 +176,97 @@ describe('Scheduler', () => {
     beats = [];
     run(settings(60, 96, 6, 1), 0);
     expect(beats[0]).toMatchObject({ barIndex: 0, beat: 1, tempo: 60 });
+  });
+
+  describe('count-in', () => {
+    const runWithCountIn = (s: ValidSettings, seconds: number) => {
+      scheduler.start(s, (e) => beats.push(e), { countIn: true });
+      clock.advance(seconds * 1000);
+    };
+
+    it('plays one bar of four count-in beats at the Start BPM before ramp bar 0', () => {
+      // 60/96/+6/4: count-in at 60, ramp bars 0–3 at 60, bar 4 at 66.
+      runWithCountIn(settings(60, 96, 6, 4), 30);
+      expect(beats.slice(0, 4)).toEqual(
+        [1, 2, 3, 4].map((beat, i) => ({
+          audioTime: START_DELAY_S + i,
+          beat,
+          barIndex: -1,
+          tempo: 60,
+          hold: false,
+          barsToNext: 0,
+          countIn: true,
+        })),
+      );
+      expect(clicks.slice(0, 4).map((c) => [c.accent, c.countIn])).toEqual([
+        [true, true],
+        [false, true],
+        [false, true],
+        [false, true],
+      ]);
+      const ramp = beats.slice(4);
+      expect(ramp.every((b) => !b.countIn)).toBe(true);
+      expect(clicks.slice(4).every((c) => !c.countIn)).toBe(true);
+      expect(ramp[0]).toMatchObject({ beat: 1, barIndex: 0, tempo: 60, barsToNext: 4 });
+      // Ramp bar 0 lands exactly one beat after count-in beat 4.
+      expect(ramp[0].audioTime - beats[3].audioTime).toBeCloseTo(1, 9);
+      expect(ramp.filter((b) => b.barIndex <= 3).every((b) => b.tempo === 60)).toBe(true);
+      expect(ramp.find((b) => b.barIndex === 4 && b.beat === 1)?.tempo).toBe(66);
+      expect(ramp.filter((b) => b.barIndex === 0).length).toBe(4);
+    });
+
+    it('starts straight on ramp bar 0 when off (current behaviour)', () => {
+      scheduler.start(settings(60, 96, 6, 4), (e) => beats.push(e), { countIn: false });
+      clock.advance(5000);
+      expect(beats[0]).toMatchObject({
+        audioTime: START_DELAY_S,
+        beat: 1,
+        barIndex: 0,
+        countIn: false,
+      });
+      expect(beats.every((b) => !b.countIn)).toBe(true);
+      expect(clicks.every((c) => !c.countIn)).toBe(true);
+    });
+
+    it('defaults to no count-in', () => {
+      run(settings(60, 96, 6, 4), 2);
+      expect(beats[0]).toMatchObject({ barIndex: 0, countIn: false });
+    });
+
+    it('skips beats missed by a late tick, keeping ramp bar 0 one beat after count-in beat 4', () => {
+      runWithCountIn(settings(120, 120, 5, 4), 0);
+      expect(beats.length).toBe(1);
+      // Stall the timers while the audio clock runs past count-in beats 2–4 (1.5 s).
+      clock.audioOffset = 1.5;
+      clock.advance(TICK_MS);
+      const late = beats.slice(1);
+      expect(late.length).toBeGreaterThan(0);
+      expect(late.every((b) => b.audioTime >= clock.currentTime)).toBe(true);
+      expect(late[0]).toMatchObject({ beat: 4, countIn: true });
+      clock.advance(1000);
+      const bar0 = beats.find((b) => b.barIndex === 0 && b.beat === 1)!;
+      // Count-in beat 4's slot is START_DELAY_S + 3 × 0.5 s; bar 0 is one beat later.
+      expect(bar0.audioTime).toBeCloseTo(START_DELAY_S + 4 * 0.5, 9);
+      expect(bar0.countIn).toBe(false);
+    });
+
+    it('stop during the count-in cancels its pending clicks', () => {
+      runWithCountIn(settings(60, 96, 6, 4), 1);
+      expect(beats.every((b) => b.countIn)).toBe(true);
+      const future = clicks.filter((c) => c.time > clock.currentTime);
+      scheduler.stop();
+      clock.advance(5000);
+      expect(future.every((c) => c.cancelled)).toBe(true);
+      expect(beats.every((b) => b.countIn)).toBe(true);
+    });
+
+    it('restarts with a fresh count-in after a stop', () => {
+      runWithCountIn(settings(60, 96, 6, 1), 10);
+      scheduler.stop();
+      beats = [];
+      runWithCountIn(settings(60, 96, 6, 1), 0);
+      expect(beats[0]).toMatchObject({ barIndex: -1, beat: 1, countIn: true });
+    });
   });
 
   it('uses a ~25 ms tick', () => {

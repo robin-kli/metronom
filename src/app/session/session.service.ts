@@ -8,7 +8,10 @@ export type SessionStatus = 'idle' | 'playing';
 
 export const MSG_NO_AUDIO = 'No audio output available';
 
-/** Owns Settings and the running Session. Only `updateSettings`, `start` and `stop` mutate. */
+/**
+ * Owns Settings, the count-in switch and the running Session.
+ * Only `updateSettings`, `setCountIn`, `start` and `stop` mutate.
+ */
 @Injectable({ providedIn: 'root' })
 export class SessionService {
   private readonly platform = inject(SESSION_PLATFORM);
@@ -17,11 +20,14 @@ export class SessionService {
   private readonly _status = signal<SessionStatus>('idle');
   private readonly _current = signal<BeatEvent | null>(null);
   private readonly _audioError = signal<string | null>(null);
+  private readonly _countIn = signal(true);
 
   readonly settings = this._settings.asReadonly();
   readonly status = this._status.asReadonly();
   readonly current = this._current.asReadonly();
   readonly audioError = this._audioError.asReadonly();
+  /** Whether a Session starts with a one-bar count-in. On at launch, not persisted. */
+  readonly countIn = this._countIn.asReadonly();
 
   private ctx: SessionAudioContext | null = null;
   private scheduler: SessionScheduler | null = null;
@@ -39,8 +45,17 @@ export class SessionService {
     this._audioError.set(null);
   }
 
+  /** Switches the count-in on or off. Ignored while playing. */
+  setCountIn(on: boolean): void {
+    if (this._status() === 'playing') {
+      return;
+    }
+    this._countIn.set(on);
+  }
+
   /**
-   * Starts a Session at bar 0 with the current Settings. Resolves to true once playing;
+   * Starts a Session with the current Settings: an optional one-bar count-in at the Start BPM
+   * (if `countIn` is on), then ramp bar 0. Resolves to true once playing;
    * false if Settings are invalid, it is already playing, or audio is unavailable.
    */
   async start(): Promise<boolean> {
@@ -70,7 +85,9 @@ export class SessionService {
     this.queue = [];
     this._current.set(null);
     this._status.set('playing');
-    this.scheduler.start(settings as ValidSettings, (event) => this.enqueue(event));
+    this.scheduler.start(settings as ValidSettings, (event) => this.enqueue(event), {
+      countIn: this._countIn(),
+    });
     this.frame = this.platform.requestAnimationFrame(() => this.publish());
     return true;
   }

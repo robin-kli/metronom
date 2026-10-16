@@ -5,10 +5,15 @@ import { SettingsStrip } from './settings-strip';
 
 @Component({
   imports: [SettingsStrip],
-  template: `<app-settings-strip [settings]="settings()" (stop)="stops = stops + 1" />`,
+  template: `<app-settings-strip
+    [settings]="settings()"
+    [countIn]="countIn()"
+    (stop)="stops = stops + 1"
+  />`,
 })
 class Host {
   readonly settings = signal<Settings>({ startBpm: 60, ceilingBpm: 120, step: 5, interval: 4 });
+  readonly countIn = signal(false);
   stops = 0;
 }
 
@@ -22,6 +27,15 @@ describe('SettingsStrip', () => {
     );
     (el.querySelector('button.stop') as HTMLButtonElement).click();
     expect(fixture.componentInstance.stops).toBe(1);
+  });
+
+  it('appends count-in when it is on', async () => {
+    const fixture = TestBed.createComponent(Host);
+    fixture.componentInstance.countIn.set(true);
+    await fixture.whenStable();
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.summary')?.textContent?.trim(),
+    ).toBe('60 → 120 BPM · +5 every 4 bars · count-in');
   });
 
   it('uses the singular for a one-bar interval', async () => {
