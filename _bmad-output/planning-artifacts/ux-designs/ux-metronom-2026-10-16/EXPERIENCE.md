@@ -23,7 +23,7 @@ There is one surface with two states.
 | Idle | App launch; Stop | Enter Settings and start a Session (FR-1, FR-2) |
 | Playing | Start (button or spacebar) | Follow the beat, tempo, and countdown (FR-5 to FR-8) |
 
-No menus, dialogs, settings pages, or navigation. On launch, the Settings fields are filled with defaults: Start 60, Ceiling 120, Step 5, Interval 4. `[ASSUMPTION: defaults; nothing is saved, so every launch shows these]`
+No menus, dialogs, settings pages, or navigation. On launch, the Settings fields are filled with defaults: Start 60, Ceiling 120, Step 5, Interval 4. `[ASSUMPTION: defaults; Settings are not saved, so every launch shows these. Only the song library is saved between launches (2026-10-17).]`
 
 ## Voice and Tone
 
@@ -43,6 +43,7 @@ Short, plain, no exclamation marks.
 | Settings form | Idle | Four number fields in order Start BPM → Ceiling BPM → Step → Every. Tab moves through them in that order. Validation runs on every change. Enter in any field starts the Session if Settings are valid. |
 | Start button | Idle | Disabled while Settings are invalid. Click or spacebar starts the Session. |
 | Validation hint | Idle | One line under Start, showing the first problem only: "All fields need a whole number above 0" or "Ceiling must be at least the start BPM". Empty when valid. |
+| Song library | Idle | Under the Settings form, headed "Songs". Saved songs listed as "{Artist} – {Song} · {BPM} BPM", sorted by Artist then Song; the list scrolls when long. Clicking a song sets Ceiling BPM to its BPM, lowering Start BPM to it if Start is above. Each row has a × remove button (no confirmation). Add form: Artist, Song, BPM, Save; Save is disabled until all three are valid (names not blank, BPM a whole number above 0), Enter in a field saves, and the form clears after saving. Saving an existing Artist + Song (case-insensitive) replaces its BPM. Empty state: "No saved songs yet". If saving to disk fails, the hint "Songs could not be saved" shows under the form. Hidden while Playing. |
 | Settings strip | Playing | Read-only summary, e.g. "60 → 120 BPM · +5 every 4 bars", with the Stop button at the right. Replaces the form, so Settings can't be edited (FR-3). |
 | Beat display | Playing | Four beat blocks; the current one lit, beat 1 in the accent colour. The BPM number above shows the current tempo. Both update on the exact Beat they belong to (FR-7). |
 | Status line | Playing | "{n} bars to +{Step}" (singular "1 bar to +5"), decreasing at the start of each Bar. In Hold: "Holding at {tempo} BPM". |

@@ -1,13 +1,15 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Settings } from './core/settings';
+import { applySong, Song } from './core/songs';
 import { SessionService } from './session/session.service';
 import { BeatDisplay } from './ui/beat-display/beat-display';
 import { SettingsForm } from './ui/settings-form/settings-form';
 import { SettingsStrip } from './ui/settings-strip/settings-strip';
+import { SongLibrary } from './ui/song-library/song-library';
 
 @Component({
   selector: 'app-root',
-  imports: [BeatDisplay, SettingsForm, SettingsStrip],
+  imports: [BeatDisplay, SettingsForm, SettingsStrip, SongLibrary],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -20,6 +22,11 @@ export class App {
     this.session.updateSettings(settings);
   }
 
+  /** Quick-selects a saved song: its BPM becomes the Ceiling. Refused while playing. */
+  protected onSongSelect(song: Song): void {
+    this.session.updateSettings(applySong(this.session.settings(), song.bpm));
+  }
+
   protected onStart(): void {
     void this.session.start();
   }
@@ -28,7 +35,7 @@ export class App {
     this.session.stop();
   }
 
-  /** The only keyboard handler: Space toggles, Enter in a settings field starts, Escape stops. */
+  /** The only keyboard handler: Space toggles (except in song name fields), Enter in a settings field starts, Escape stops. */
   protected onKeydown(event: KeyboardEvent): void {
     if (event.ctrlKey || event.altKey || event.metaKey) {
       return;
@@ -36,7 +43,11 @@ export class App {
     const playing = this.session.status() === 'playing';
     switch (event.key) {
       case ' ':
-        // Always swallow Space: no typed space, no scroll, no native button activation.
+        if (isSongTextField(event.target)) {
+          // Let Artist and Song names contain spaces.
+          return;
+        }
+        // Otherwise always swallow Space: no typed space, no scroll, no native button activation.
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -62,4 +73,12 @@ export class App {
         return;
     }
   }
+}
+
+function isSongTextField(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement &&
+    target.type === 'text' &&
+    target.closest('app-song-library') !== null
+  );
 }

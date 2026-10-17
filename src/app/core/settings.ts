@@ -18,7 +18,7 @@ export const MSG_CEILING_BELOW_START = 'Ceiling must be at least the start BPM';
 
 export type ValidationResult = { ok: true } | { ok: false; message: string };
 
-function isPositiveWhole(value: number | null): value is number {
+export function isPositiveWhole(value: number | null): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0;
 }
 

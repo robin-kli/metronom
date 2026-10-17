@@ -7,7 +7,7 @@ paradigm: 'functional core, imperative shell'
 scope: 'metronom v1: the whole app (Angular renderer + Electron shell)'
 status: final
 created: '2026-10-16'
-updated: '2026-10-16'
+updated: '2026-10-17'
 binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8]
 sources:
   - ../../prds/prd-metronom-2026-10-16/prd.md
@@ -91,6 +91,12 @@ flowchart LR
 - **Prevents:** a dependency or font silently fetching from the network.
 - **Rule:** no runtime network requests. `index.html` sets the CSP `default-src 'self'`, with `style-src 'self' 'unsafe-inline'` only if Angular needs it. No web fonts or CDN assets. The click is synthesised with `OscillatorNode` + `GainNode`, with no audio files.
 
+### AD-9: Saved songs are the only persisted state
+
+- **Binds:** song library (spec-song-bpm-presets, 2026-10-17)
+- **Prevents:** persistence spreading into Settings or window state, Electron gaining IPC for storage, and corrupt stored data crashing launch.
+- **Rule:** the pure rules (`Song`, `validateSong`, `songKey`, upsert, remove, sort, `parseSongs`, `applySong`) live in `core/songs.ts`. Only the root-provided `session/song-library.service.ts` touches storage, through the `SONG_STORAGE` token (default `localStorage`, `null` when unavailable). Key `metronom.songs.v1` holds a JSON array of `{ artist, title, bpm }`. Bad stored data loads as its valid entries only and never throws; a failed write keeps the in-memory list and shows "Songs could not be saved". Selecting a song goes through `SessionService.updateSettings()` (Ceiling = song BPM, Start lowered to it if above). Settings, count-in and window state stay unpersisted. AD-6 exception: Space in a text `<input>` inside `app-song-library` is left alone.
+
 ## Consistency Conventions
 
 | Concern | Convention |
@@ -126,7 +132,7 @@ metronom/
       core/               # ramp.ts, settings.ts (+ .spec.ts), pure
       audio/              # scheduler.ts, click.ts
       session/            # session.service.ts, beat-event.ts
-      ui/                 # settings-form/, settings-strip/, beat-display/
+      ui/                 # settings-form/, settings-strip/, beat-display/, song-library/
   electron/
     main.ts               # BrowserWindow, loads dist (AD-7)
   electron-builder.yml    # linux: AppImage
@@ -156,6 +162,7 @@ flowchart TB
 | FR-5 Ramp | `core/ramp.ts`, `audio/scheduler.ts` | AD-1, AD-3 |
 | FR-6 Click | `audio/click.ts` | AD-3, AD-8 |
 | FR-7, FR-8 Beat display | `ui/beat-display`, `ui/settings-strip` | AD-4 |
+| Saved songs | `core/songs.ts`, `session/song-library.service.ts`, `ui/song-library` | AD-9 |
 
 ## Deferred
 
@@ -163,4 +170,4 @@ flowchart TB
 - **App icon and `.desktop` launcher integration**: cosmetic, can come at the end.
 - **CI, auto-update, code signing**: a personal local app has no release pipeline.
 - **End-to-end tests**: the risk lives in the pure core and the scheduler, which unit tests cover.
-- **Window size and position memory**: the PRD rules out persistence.
+- **Window size and position memory**: the PRD rules out persistence. Saved songs are the one exception (AD-9); Settings, count-in and window state are still not persisted.

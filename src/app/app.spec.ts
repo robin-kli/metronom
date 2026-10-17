@@ -4,6 +4,7 @@ import { Scheduler, SchedulerOptions } from './audio/scheduler';
 import { BeatEvent } from './core/beat-event';
 import { SESSION_PLATFORM, SessionPlatform } from './session/session-platform';
 import { SessionService } from './session/session.service';
+import { SONG_STORAGE, SONG_STORAGE_KEY } from './session/song-library.service';
 
 describe('App', () => {
   let stops: number;
@@ -12,6 +13,7 @@ describe('App', () => {
   let onEvent: ((event: BeatEvent) => void) | null;
   let startOptions: (SchedulerOptions | undefined)[];
   let frame: (() => void) | null;
+  let songData: Map<string, string>;
 
   beforeEach(async () => {
     stops = 0;
@@ -20,6 +22,7 @@ describe('App', () => {
     onEvent = null;
     startOptions = [];
     frame = null;
+    songData = new Map();
     const platform: SessionPlatform = {
       createAudioContext: () => ({
         currentTime: 0,
@@ -44,7 +47,16 @@ describe('App', () => {
     };
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [{ provide: SESSION_PLATFORM, useValue: platform }],
+      providers: [
+        { provide: SESSION_PLATFORM, useValue: platform },
+        {
+          provide: SONG_STORAGE,
+          useValue: {
+            getItem: (k: string) => songData.get(k) ?? null,
+            setItem: (k: string, v: string) => songData.set(k, v),
+          },
+        },
+      ],
     }).compileComponents();
   });
 
@@ -52,7 +64,9 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
-    const values = Array.from(el.querySelectorAll('input')).map((i) => i.value);
+    const values = Array.from(el.querySelectorAll<HTMLInputElement>('app-settings-form input')).map(
+      (i) => i.value,
+    );
     expect(values).toEqual(['60', '120', '5', '4']);
   });
 
@@ -95,12 +109,11 @@ describe('App', () => {
     await fixture.whenStable();
     expect(stops).toBe(1);
     expect(el.querySelector('app-settings-strip')).toBeNull();
-    expect(Array.from(el.querySelectorAll('input')).map((i) => i.value)).toEqual([
-      '80',
-      '120',
-      '5',
-      '4',
-    ]);
+    expect(
+      Array.from(el.querySelectorAll<HTMLInputElement>('app-settings-form input')).map(
+        (i) => i.value,
+      ),
+    ).toEqual(['80', '120', '5', '4']);
   });
 
   it('opens with the Count-in switch on and starts with a count-in', async () => {
@@ -197,6 +210,139 @@ describe('App', () => {
     expect(el.querySelector('.hint')?.textContent?.trim()).toBe('No audio output available');
   });
 
+  describe('song library', () => {
+    function storeSongs() {
+      songData.set(
+        SONG_STORAGE_KEY,
+        JSON.stringify([
+          { artist: 'Metallica', title: 'One', bpm: 140 },
+          { artist: 'Slayer', title: 'Seasons', bpm: 90 },
+        ]),
+      );
+    }
+    const settingsValues = (el: HTMLElement) =>
+      Array.from(el.querySelectorAll<HTMLInputElement>('app-settings-form input')).map(
+        (i) => (i as HTMLInputElement).value,
+      );
+    const pick = (el: HTMLElement, index: number) =>
+      (el.querySelectorAll('app-song-library .pick')[index] as HTMLButtonElement).click();
+
+    it('lists stored songs on launch under the settings form', async () => {
+      storeSongs();
+      const fixture = TestBed.createComponent(App);
+      const el = fixture.nativeElement as HTMLElement;
+      await fixture.whenStable();
+      const idle = el.querySelector('main.idle')!;
+      expect(Array.from(idle.children).map((c) => c.tagName.toLowerCase())).toEqual([
+        'app-settings-form',
+        'app-song-library',
+      ]);
+      expect(el.querySelectorAll('app-song-library .row')).toHaveLength(2);
+    });
+
+    it('selecting a row sets the Ceiling field, and Start ramps towards it', async () => {
+      storeSongs();
+      const fixture = TestBed.createComponent(App);
+      const el = fixture.nativeElement as HTMLElement;
+      await fixture.whenStable();
+      pick(el, 0);
+      await fixture.whenStable();
+      expect(settingsValues(el)).toEqual(['60', '140', '5', '4']);
+      (el.querySelector('button.start') as HTMLButtonElement).click();
+      await new Promise((r) => setTimeout(r));
+      await fixture.whenStable();
+      expect(el.querySelector('.summary')?.textContent?.trim()).toBe(
+        '60 → 140 BPM · +5 every 4 bars · count-in',
+      );
+      expect(el.querySelector('app-song-library')).toBeNull();
+    });
+
+    it('selecting a song below the Start BPM lowers Start to it', async () => {
+      storeSongs();
+      const fixture = TestBed.createComponent(App);
+      const el = fixture.nativeElement as HTMLElement;
+      await fixture.whenStable();
+      const start = el.querySelector('app-settings-form input') as HTMLInputElement;
+      start.value = '100';
+      start.dispatchEvent(new Event('input'));
+      await fixture.whenStable();
+      pick(el, 1);
+      await fixture.whenStable();
+      expect(settingsValues(el)).toEqual(['90', '90', '5', '4']);
+    });
+
+    it('Space in the Artist and Song fields types normally and does not start', async () => {
+      const fixture = TestBed.createComponent(App);
+      const el = fixture.nativeElement as HTMLElement;
+      document.body.appendChild(el);
+      await fixture.whenStable();
+      for (const name of ['artist', 'title']) {
+        const input = el.querySelector(
+          `app-song-library input[name="${name}"]`,
+        ) as HTMLInputElement;
+        input.focus();
+        const event = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true });
+        input.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(false);
+      }
+      await new Promise((r) => setTimeout(r));
+      await fixture.whenStable();
+      expect(TestBed.inject(SessionService).status()).toBe('idle');
+      expect(starts).toBe(0);
+      fixture.destroy();
+      el.remove();
+    });
+
+    it('a native select event in the Artist field leaves the Settings unchanged', async () => {
+      const fixture = TestBed.createComponent(App);
+      const el = fixture.nativeElement as HTMLElement;
+      await fixture.whenStable();
+      const input = el.querySelector('app-song-library input[name="artist"]') as HTMLInputElement;
+      input.dispatchEvent(new Event('select', { bubbles: true }));
+      await fixture.whenStable();
+      expect(TestBed.inject(SessionService).settings()).toEqual({
+        startBpm: 60,
+        ceilingBpm: 120,
+        step: 5,
+        interval: 4,
+      });
+      expect(settingsValues(el)).toEqual(['60', '120', '5', '4']);
+    });
+
+    it.each([
+      ['the BPM field', 'app-song-library input[name="bpm"]'],
+      ['a song row', 'app-song-library .pick'],
+    ])('Space on %s is swallowed and starts the Session', async (_name, selector) => {
+      storeSongs();
+      const fixture = TestBed.createComponent(App);
+      const el = fixture.nativeElement as HTMLElement;
+      document.body.appendChild(el);
+      await fixture.whenStable();
+      const target = el.querySelector(selector) as HTMLElement;
+      target.focus();
+      const event = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true });
+      target.dispatchEvent(event);
+      await new Promise((r) => setTimeout(r));
+      await fixture.whenStable();
+      expect(event.defaultPrevented).toBe(true);
+      expect(TestBed.inject(SessionService).status()).toBe('playing');
+      expect(starts).toBe(1);
+      TestBed.inject(SessionService).stop();
+      fixture.destroy();
+      el.remove();
+    });
+
+    it('Enter in a song field does not start the Session', async () => {
+      const fixture = TestBed.createComponent(App);
+      const el = fixture.nativeElement as HTMLElement;
+      await fixture.whenStable();
+      const input = el.querySelector('app-song-library input[name="artist"]') as HTMLInputElement;
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      await new Promise((r) => setTimeout(r));
+      expect(starts).toBe(0);
+    });
+  });
+
   describe('keyboard', () => {
     function key(target: EventTarget, k: string, init: KeyboardEventInit = {}): KeyboardEvent {
       const event = new KeyboardEvent('keydown', {
@@ -221,7 +367,8 @@ describe('App', () => {
         await new Promise((r) => setTimeout(r));
         await fixture.whenStable();
       };
-      const inputs = () => Array.from(el.querySelectorAll('input'));
+      const inputs = () =>
+        Array.from(el.querySelectorAll<HTMLInputElement>('app-settings-form input'));
       const makeInvalid = async () => {
         const first = inputs()[0];
         first.value = '';

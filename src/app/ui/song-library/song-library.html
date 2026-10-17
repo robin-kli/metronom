@@ -1,0 +1,42 @@
+<h2 class="heading">Songs</h2>
+
+@if (library.songs().length === 0) {
+  <p class="empty">No saved songs yet</p>
+} @else {
+  <ul class="list">
+    @for (song of library.songs(); track key(song)) {
+      <li class="row">
+        <button type="button" class="pick" (click)="songSelect.emit(song)">
+          <span class="name">{{ song.artist }} – {{ song.title }}</span
+          >&ngsp;<span class="bpm">· {{ song.bpm }} BPM</span>
+        </button>
+        <button
+          type="button"
+          class="remove"
+          [attr.aria-label]="'Remove ' + song.artist + ' – ' + song.title"
+          (click)="library.remove(song)"
+        >
+          ×
+        </button>
+      </li>
+    }
+  </ul>
+}
+
+<form class="add" (submit)="onSubmit($event)">
+  <label class="field">
+    <span class="label">Artist</span>
+    <input type="text" name="artist" autocomplete="off" (input)="onText('artist', $event)" />
+  </label>
+  <label class="field">
+    <span class="label">Song</span>
+    <input type="text" name="title" autocomplete="off" (input)="onText('title', $event)" />
+  </label>
+  <label class="field bpm-field">
+    <span class="label">BPM</span>
+    <input type="number" inputmode="numeric" min="1" step="1" name="bpm" (input)="onBpm($event)" />
+  </label>
+  <button type="submit" class="save" [disabled]="!draft()">Save</button>
+</form>
+
+<p class="hint" aria-live="polite">{{ library.saveError() ?? '' }}</p>

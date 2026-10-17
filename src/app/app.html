@@ -22,5 +22,6 @@
       [extraHint]="session.audioError()"
       (start)="onStart()"
     />
+    <app-song-library (songSelect)="onSongSelect($event)" />
   </main>
 }
