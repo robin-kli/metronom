@@ -1,5 +1,12 @@
 import { Injectable, InjectionToken, inject, signal } from '@angular/core';
-import { parseSongs, removeSong, serializeSongs, Song, upsertSong } from '../core/songs';
+import {
+  parseSongs,
+  removeSong,
+  replaceSong,
+  serializeSongs,
+  Song,
+  upsertSong,
+} from '../core/songs';
 
 /** The part of `Storage` the song library uses; `null` when storage is unavailable. */
 export type SongStorage = Pick<Storage, 'getItem' | 'setItem'>;
@@ -35,6 +42,14 @@ export class SongLibraryService {
   /** Adds the song, or replaces the BPM of the one with the same Artist + Song. */
   save(song: Song): void {
     this.commit(upsertSong(this._songs(), song));
+  }
+
+  /**
+   * Replaces `original` with `edited` (Artist + Song may change). If the edited Artist + Song
+   * matches another saved song, that entry is replaced too.
+   */
+  update(original: Song, edited: Song): void {
+    this.commit(replaceSong(this._songs(), original, edited));
   }
 
   remove(song: Song): void {

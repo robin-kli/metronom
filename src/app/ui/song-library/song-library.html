@@ -5,16 +5,31 @@
 } @else {
   <ul class="list">
     @for (song of library.songs(); track key(song)) {
-      <li class="row">
+      <li class="row" [class.editing]="isEditing(song)">
         <button type="button" class="pick" (click)="songSelect.emit(song)">
           <span class="name">{{ song.artist }} – {{ song.title }}</span
-          >&ngsp;<span class="bpm">· {{ song.bpm }} BPM</span>
+          >&ngsp;<span class="bpm"
+            >· {{ song.bpm }} BPM
+            @if (song.maxBpm !== null) {
+              · max {{ song.maxBpm }}
+            }
+          </span>
+        </button>
+        <button
+          type="button"
+          class="edit"
+          title="Edit"
+          [attr.aria-label]="'Edit ' + song.artist + ' – ' + song.title"
+          (click)="onEdit(song)"
+        >
+          ✎
         </button>
         <button
           type="button"
           class="remove"
+          title="Remove"
           [attr.aria-label]="'Remove ' + song.artist + ' – ' + song.title"
-          (click)="library.remove(song)"
+          (click)="onRemove(song)"
         >
           ×
         </button>
@@ -23,7 +38,7 @@
   </ul>
 }
 
-<form class="add" (submit)="onSubmit($event)">
+<form #form class="add" (submit)="onSubmit($event)">
   <label class="field">
     <span class="label">Artist</span>
     <input type="text" name="artist" autocomplete="off" (input)="onText('artist', $event)" />
@@ -32,11 +47,36 @@
     <span class="label">Song</span>
     <input type="text" name="title" autocomplete="off" (input)="onText('title', $event)" />
   </label>
-  <label class="field bpm-field">
+  <label class="field">
     <span class="label">BPM</span>
-    <input type="number" inputmode="numeric" min="1" step="1" name="bpm" (input)="onBpm($event)" />
+    <input
+      type="number"
+      inputmode="numeric"
+      min="1"
+      step="1"
+      name="bpm"
+      (input)="onNumber('bpm', $event)"
+    />
   </label>
-  <button type="submit" class="save" [disabled]="!draft()">Save</button>
+  <label class="field">
+    <span class="label">My max (BPM)</span>
+    <input
+      type="number"
+      inputmode="numeric"
+      min="1"
+      step="1"
+      name="maxBpm"
+      (input)="onNumber('maxBpm', $event)"
+    />
+  </label>
+  <div class="actions">
+    <button type="submit" class="save" [disabled]="!draft()">
+      {{ editing() ? 'Update' : 'Save' }}
+    </button>
+    @if (editing()) {
+      <button type="button" class="cancel" (click)="clear()">Cancel</button>
+    }
+  </div>
 </form>
 
 <p class="hint" aria-live="polite">{{ library.saveError() ?? '' }}</p>

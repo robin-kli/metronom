@@ -3,6 +3,7 @@ import {
   applySong,
   parseSongs,
   removeSong,
+  replaceSong,
   serializeSongs,
   Song,
   songKey,
@@ -11,7 +12,8 @@ import {
   validateSong,
 } from './songs';
 
-const one: Song = { artist: 'Metallica', title: 'One', bpm: 140 };
+const one: Song = { artist: 'Metallica', title: 'One', bpm: 140, maxBpm: null };
+const tnt: Song = { artist: 'AC/DC', title: 'TNT', bpm: 130, maxBpm: null };
 
 describe('validateSong', () => {
   it('accepts and trims a valid draft', () => {
@@ -33,6 +35,24 @@ describe('validateSong', () => {
 
   it('has no upper BPM limit', () => {
     expect(validateSong({ artist: 'a', title: 'b', bpm: 999 })?.bpm).toBe(999);
+  });
+
+  it.each([
+    ['missing', undefined, null],
+    ['empty', null, null],
+    ['below the BPM', 110, 110],
+    ['above the BPM, no upper limit', 999, 999],
+  ])('accepts a %s max', (_name, maxBpm, expected) => {
+    expect(validateSong({ artist: 'a', title: 'b', bpm: 140, maxBpm })?.maxBpm).toBe(expected);
+  });
+
+  it.each([
+    ['0', 0],
+    ['12.5', 12.5],
+    ['negative', -5],
+    ['NaN', Number.NaN],
+  ])('rejects a max of %s', (_name, maxBpm) => {
+    expect(validateSong({ artist: 'a', title: 'b', bpm: 140, maxBpm })).toBeNull();
   });
 });
 
@@ -57,17 +77,41 @@ describe('songKey / upsertSong / removeSong / sortSongs', () => {
 
   it('sorts by artist, then song, ignoring case', () => {
     const sorted = sortSongs([
-      { artist: 'metallica', title: 'Sad but True', bpm: 90 },
-      { artist: 'AC/DC', title: 'Thunderstruck', bpm: 134 },
+      { artist: 'metallica', title: 'Sad but True', bpm: 90, maxBpm: null },
+      { artist: 'AC/DC', title: 'Thunderstruck', bpm: 134, maxBpm: null },
       one,
     ]);
     expect(sorted.map((s) => s.title)).toEqual(['Thunderstruck', 'One', 'Sad but True']);
   });
 
   it('removes by key and leaves the input untouched', () => {
-    const songs = [one, { artist: 'AC/DC', title: 'TNT', bpm: 130 }];
+    const songs = [one, tnt];
     expect(removeSong(songs, { artist: 'METALLICA', title: 'one' })).toEqual([songs[1]]);
     expect(songs).toHaveLength(2);
+  });
+});
+
+describe('replaceSong', () => {
+  it('updates the edited song in place', () => {
+    const edited = { ...one, bpm: 150, maxBpm: 110 };
+    expect(replaceSong([one, tnt], one, edited)).toEqual([tnt, edited]);
+  });
+
+  it('removes the old entry on rename', () => {
+    const edited = { ...one, title: 'One (live)' };
+    expect(replaceSong([one, tnt], one, edited)).toEqual([tnt, edited]);
+  });
+
+  it('replaces an existing entry when renamed onto it', () => {
+    const battery: Song = { artist: 'Metallica', title: 'Battery', bpm: 190, maxBpm: 150 };
+    const edited = { ...one, title: 'Battery', bpm: 160, maxBpm: null };
+    expect(replaceSong([battery, one, tnt], one, edited)).toEqual([tnt, edited]);
+  });
+
+  it('leaves the input untouched', () => {
+    const songs = [one, tnt];
+    replaceSong(songs, one, { ...one, bpm: 150 });
+    expect(songs).toEqual([one, tnt]);
   });
 });
 
@@ -90,11 +134,32 @@ describe('parseSongs', () => {
       { artist: 'x', title: 'y', bpm: 0 },
       { artist: ' AC/DC ', title: 'TNT', bpm: 130, extra: true },
     ]);
-    expect(parseSongs(raw)).toEqual([{ artist: 'AC/DC', title: 'TNT', bpm: 130 }, one]);
+    expect(parseSongs(raw)).toEqual([tnt, one]);
   });
 
-  it('round-trips with serializeSongs', () => {
-    expect(parseSongs(serializeSongs([one]))).toEqual([one]);
+  it('loads entries saved before "My max" with maxBpm null', () => {
+    expect(parseSongs('[{"artist":"A","title":"B","bpm":90}]')).toEqual([
+      { artist: 'A', title: 'B', bpm: 90, maxBpm: null },
+    ]);
+  });
+
+  it.each([
+    ['a string', '"fast"'],
+    ['0', '0'],
+    ['12.5', '12.5'],
+    ['null', 'null'],
+  ])('keeps the song and drops a stored max of %s', (_name, max) => {
+    expect(parseSongs(`[{"artist":"A","title":"B","bpm":90,"maxBpm":${max}}]`)).toEqual([
+      { artist: 'A', title: 'B', bpm: 90, maxBpm: null },
+    ]);
+  });
+
+  it('round-trips with serializeSongs, including the max', () => {
+    const songs = [{ ...tnt, maxBpm: 120 }, one];
+    expect(parseSongs(serializeSongs(songs))).toEqual(songs);
+    expect(JSON.parse(serializeSongs([one]))).toEqual([
+      { artist: 'Metallica', title: 'One', bpm: 140, maxBpm: null },
+    ]);
   });
 });
 

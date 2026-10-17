@@ -37,6 +37,7 @@
 }
 
 .pick,
+.edit,
 .remove {
   background: var(--color-surface-raised);
   color: var(--color-text);
@@ -66,6 +67,7 @@
   color: var(--color-text-muted);
 }
 
+.edit,
 .remove {
   flex: none;
   width: 40px;
@@ -74,20 +76,35 @@
 }
 
 .pick:hover,
-.remove:hover {
+.edit:hover,
+.remove:hover,
+.cancel:hover {
+  border-color: var(--color-text);
+}
+
+.row.editing .pick {
   border-color: var(--color-text);
 }
 
 .add {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto;
   align-items: end;
   gap: var(--space-3);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
 }
 
 @media (max-width: 640px) {
   .add {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .actions {
+    grid-column: 1 / -1;
   }
 }
 
@@ -117,7 +134,8 @@ input {
   line-height: 1.4;
 }
 
-.save {
+.save,
+.cancel {
   height: 40px;
   padding: 0 var(--space-4);
   background: var(--color-surface-raised);
@@ -129,6 +147,12 @@ input {
   cursor: pointer;
 }
 
+.cancel {
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
 .save:disabled {
   background: var(--color-beat-off);
   color: var(--color-text-muted);
@@ -138,8 +162,10 @@ input {
 
 input:focus-visible,
 .pick:focus-visible,
+.edit:focus-visible,
 .remove:focus-visible,
-.save:focus-visible {
+.save:focus-visible,
+.cancel:focus-visible {
   outline: 2px solid var(--color-text);
   outline-offset: 2px;
 }

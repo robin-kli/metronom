@@ -20,8 +20,8 @@ class FakeStorage implements SongStorage {
   }
 }
 
-const one: Song = { artist: 'Metallica', title: 'One', bpm: 140 };
-const tnt: Song = { artist: 'AC/DC', title: 'TNT', bpm: 130 };
+const one: Song = { artist: 'Metallica', title: 'One', bpm: 140, maxBpm: null };
+const tnt: Song = { artist: 'AC/DC', title: 'TNT', bpm: 130, maxBpm: null };
 
 describe('SongLibraryService', () => {
   let storage: FakeStorage;
@@ -62,11 +62,10 @@ describe('SongLibraryService', () => {
   it('persists a save, survives a new instance, and replaces duplicates', () => {
     const lib = create();
     lib.save(one);
-    lib.save({ artist: 'metallica', title: 'ONE', bpm: 150 });
-    expect(lib.songs()).toEqual([{ artist: 'metallica', title: 'ONE', bpm: 150 }]);
-    expect(JSON.parse(storage.data.get(SONG_STORAGE_KEY)!)).toEqual([
-      { artist: 'metallica', title: 'ONE', bpm: 150 },
-    ]);
+    const dup: Song = { artist: 'metallica', title: 'ONE', bpm: 150, maxBpm: null };
+    lib.save(dup);
+    expect(lib.songs()).toEqual([dup]);
+    expect(JSON.parse(storage.data.get(SONG_STORAGE_KEY)!)).toEqual([dup]);
     expect(lib.saveError()).toBeNull();
   });
 
@@ -76,6 +75,25 @@ describe('SongLibraryService', () => {
     lib.remove(one);
     expect(lib.songs()).toEqual([tnt]);
     expect(JSON.parse(storage.data.get(SONG_STORAGE_KEY)!)).toEqual([tnt]);
+  });
+
+  it('persists an update, including a rename and the max', () => {
+    storage.data.set(SONG_STORAGE_KEY, JSON.stringify([one, tnt]));
+    const lib = create();
+    const edited: Song = { ...one, title: 'One (live)', bpm: 150, maxBpm: 110 };
+    lib.update(one, edited);
+    expect(lib.songs()).toEqual([tnt, edited]);
+    expect(JSON.parse(storage.data.get(SONG_STORAGE_KEY)!)).toEqual([tnt, edited]);
+    expect(lib.saveError()).toBeNull();
+  });
+
+  it('updates in memory and reports when an update write throws', () => {
+    storage.data.set(SONG_STORAGE_KEY, JSON.stringify([one]));
+    const lib = create();
+    storage.failWrites = true;
+    lib.update(one, { ...one, bpm: 150 });
+    expect(lib.songs()).toEqual([{ ...one, bpm: 150 }]);
+    expect(lib.saveError()).toBe(MSG_SONGS_NOT_SAVED);
   });
 
   it('updates in memory and reports when a write throws, clearing on the next good write', () => {

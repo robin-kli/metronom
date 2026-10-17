@@ -5,23 +5,33 @@ export interface Song {
   artist: string;
   title: string;
   bpm: number;
+  /** "My max": the highest tempo the user can play it at so far. Information only. */
+  maxBpm: number | null;
 }
 
-/** What the add form holds; `bpm` is `null` while the field is empty or unparseable. */
+/**
+ * What the form holds; `bpm` and `maxBpm` are `null` while the field is empty or unparseable.
+ * A missing `maxBpm` counts as empty.
+ */
 export interface SongDraft {
   artist: string;
   title: string;
   bpm: number | null;
+  maxBpm?: number | null;
 }
 
 /** Returns the trimmed Song when the draft is valid, otherwise `null`. */
 export function validateSong(draft: SongDraft): Song | null {
   const artist = typeof draft.artist === 'string' ? draft.artist.trim() : '';
   const title = typeof draft.title === 'string' ? draft.title.trim() : '';
+  const maxBpm = draft.maxBpm ?? null;
   if (!artist || !title || !isPositiveWhole(draft.bpm)) {
     return null;
   }
-  return { artist, title, bpm: draft.bpm };
+  if (maxBpm !== null && !isPositiveWhole(maxBpm)) {
+    return null;
+  }
+  return { artist, title, bpm: draft.bpm, maxBpm };
 }
 
 /** Identity of a song: Artist + Song, trimmed and case-insensitive. */
@@ -47,6 +57,18 @@ export function removeSong(songs: readonly Song[], song: Pick<Song, 'artist' | '
   return songs.filter((s) => songKey(s) !== key);
 }
 
+/**
+ * Replaces `original` with `edited`: removes the original by key, then upserts the edited song,
+ * so an edited Artist + Song that matches another entry replaces that entry too. Sorted copy.
+ */
+export function replaceSong(
+  songs: readonly Song[],
+  original: Pick<Song, 'artist' | 'title'>,
+  edited: Song,
+): Song[] {
+  return upsertSong(removeSong(songs, original), edited);
+}
+
 /** Parses stored JSON. Keeps only valid entries (deduplicated, sorted); never throws. */
 export function parseSongs(raw: string | null | undefined): Song[] {
   if (!raw) {
@@ -66,11 +88,13 @@ export function parseSongs(raw: string | null | undefined): Song[] {
     if (typeof entry !== 'object' || entry === null) {
       continue;
     }
-    const { artist, title, bpm } = entry as Record<string, unknown>;
+    const { artist, title, bpm, maxBpm } = entry as Record<string, unknown>;
     if (typeof artist !== 'string' || typeof title !== 'string' || typeof bpm !== 'number') {
       continue;
     }
-    const song = validateSong({ artist, title, bpm });
+    // Entries from before "My max" have none; an invalid one is dropped, the song is kept.
+    const max = typeof maxBpm === 'number' && isPositiveWhole(maxBpm) ? maxBpm : null;
+    const song = validateSong({ artist, title, bpm, maxBpm: max });
     if (song) {
       songs = upsertSong(songs, song);
     }
@@ -80,7 +104,9 @@ export function parseSongs(raw: string | null | undefined): Song[] {
 
 /** Serialises songs for storage. */
 export function serializeSongs(songs: readonly Song[]): string {
-  return JSON.stringify(songs.map(({ artist, title, bpm }) => ({ artist, title, bpm })));
+  return JSON.stringify(
+    songs.map(({ artist, title, bpm, maxBpm }) => ({ artist, title, bpm, maxBpm })),
+  );
 }
 
 /**
