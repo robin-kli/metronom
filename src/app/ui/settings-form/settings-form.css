@@ -18,7 +18,8 @@
   }
 }
 
-.field {
+.field,
+.field-input {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -42,6 +43,50 @@ input {
   font-size: 24px;
   font-weight: 600;
   line-height: 1.2;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* The steppers below replace the tiny native spinner arrows. */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.stepper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.stepper button {
+  height: 48px;
+  padding: 0;
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.stepper button:hover:not(:disabled) {
+  border-color: var(--color-text);
+}
+
+.stepper button:active:not(:disabled) {
+  background: var(--color-beat-off);
+}
+
+.stepper button:disabled {
+  color: var(--color-text-muted);
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 input:focus-visible,

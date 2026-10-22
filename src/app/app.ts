@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { Settings } from './core/settings';
+import { Settings, shiftRange } from './core/settings';
 import { applySong, Song } from './core/songs';
 import { SessionService } from './session/session.service';
 import { BeatDisplay } from './ui/beat-display/beat-display';
@@ -35,7 +35,10 @@ export class App {
     this.session.stop();
   }
 
-  /** The only keyboard handler: Space toggles (except in song name fields), Enter in a settings field starts, Escape stops. */
+  /**
+   * The only keyboard handler: Space toggles (except in song name fields), Enter in a settings field starts,
+   * Escape stops, and ArrowUp/ArrowDown shift Start and Ceiling BPM by 1 while idle (except in song fields).
+   */
   protected onKeydown(event: KeyboardEvent): void {
     if (event.ctrlKey || event.altKey || event.metaKey) {
       return;
@@ -71,8 +74,23 @@ export class App {
           this.session.stop();
         }
         return;
+      case 'ArrowUp':
+      case 'ArrowDown':
+        if (playing || isSongField(event.target)) {
+          return;
+        }
+        // Replace the native +1 on a focused settings field; auto-repeat is welcome here.
+        event.preventDefault();
+        this.session.updateSettings(
+          shiftRange(this.session.settings(), event.key === 'ArrowUp' ? 1 : -1),
+        );
+        return;
     }
   }
+}
+
+function isSongField(target: EventTarget | null): boolean {
+  return target instanceof HTMLInputElement && target.closest('app-song-library') !== null;
 }
 
 function isSongTextField(target: EventTarget | null): boolean {

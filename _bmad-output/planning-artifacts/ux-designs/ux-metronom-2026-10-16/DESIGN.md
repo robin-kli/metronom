@@ -3,7 +3,7 @@ name: metronom
 description: Minimal dark speed-trainer metronome for the Linux desktop. Plain Angular, no component library; this file is the whole visual system.
 status: final
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-22
 sources:
   - ../../prds/prd-metronom-2026-10-16/prd.md
   - ../../briefs/brief-metronom-2026-10-16/brief.md
@@ -80,6 +80,14 @@ components:
     border: '1px solid {colors.border}'
     radius: '{rounded.sm}'
     typography: '{typography.input}'
+  settings-stepper:
+    background: '{colors.surface-raised}'
+    foreground: '{colors.text}'
+    border: '1px solid {colors.border}'
+    radius: '{rounded.md}'
+    height: 48px
+    glyphSize: 28px
+    gap: '{spacing.2}'
   button-start:
     background: '{colors.accent}'
     foreground: '{colors.accent-foreground}'
@@ -129,7 +137,7 @@ System font stack (`system-ui`), so nothing has to be bundled or downloaded. Eve
 
 One window, one column, everything centred. Spacing uses a 4px scale.
 
-- **Idle**: the settings form sits in the middle of the window: four fields in a row (two by two in narrow windows) with labels above, then the Start button, then the validation hint line.
+- **Idle**: the settings form sits in the middle of the window: four fields in a row (two by two in narrow windows) with labels above and a −/+ stepper pair below each, then the Start button, then the validation hint line.
 - **Playing**: a slim settings strip runs across the top. Beneath it, centred vertically: BPM number, the row of four beat blocks, the status line. The beat row and BPM scale with the window (`vmin`/`vw`), so the display always uses the available space.
 
 Minimum useful window: about 480 × 360px.
@@ -148,6 +156,7 @@ Soft but not round: `{rounded.sm}` for inputs, `{rounded.md}` for buttons, `{rou
 - **BPM number**: `{typography.bpm-display}` in `{colors.text}`, followed by a small "BPM" label in `{colors.text-muted}`.
 - **Status line**: `{typography.status-line}` in `{colors.text-muted}`.
 - **Settings input**: number field on `{colors.surface-raised}` with a `{colors.border}` outline. When the Settings are locked they are not shown as inputs (see settings strip).
+- **Settings stepper**: a pair of buttons, "−" and "+", directly under each Settings input and sharing its width (two equal halves, `{spacing.2}` apart). 48px tall with a 28px glyph, so they are easy to hit from playing position. Body uses `{colors.surface-raised}` with a `{colors.border}` outline, same family as the input. Hover: the border turns `{colors.text}`. Pressed: fill `{colors.beat-off}`. Disabled: glyph `{colors.text-muted}` at reduced opacity, no hover. Never amber. The input itself hides the browser's spinner arrows.
 - **Start button**: `{colors.accent}` fill, dark text. Disabled: `{colors.beat-off}` fill, `{colors.text-muted}` text.
 - **Stop button**: outlined, transparent.
 - **Settings strip**: one line on `{colors.surface-raised}` showing the locked Settings as plain text, with the Stop button at its right end.

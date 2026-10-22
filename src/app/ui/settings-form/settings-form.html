@@ -1,18 +1,43 @@
 <div class="fields">
   @for (field of fields; track field.key) {
-    <label class="field">
-      <span class="label">{{ field.label }}</span>
-      <input
-        type="number"
-        inputmode="numeric"
-        min="1"
-        step="1"
-        [name]="field.key"
-        aria-describedby="settings-hint"
-        [ngModel]="settings()[field.key]"
-        (ngModelChange)="update(field.key, $event)"
-      />
-    </label>
+    <div class="field">
+      <label class="field-input">
+        <span class="label">{{ field.label }}</span>
+        <input
+          type="number"
+          inputmode="numeric"
+          min="1"
+          step="1"
+          [name]="field.key"
+          aria-describedby="settings-hint"
+          [ngModel]="settings()[field.key]"
+          (ngModelChange)="update(field.key, $event)"
+        />
+      </label>
+      <div class="stepper">
+        <button
+          type="button"
+          class="step-down"
+          tabindex="-1"
+          [attr.aria-label]="'Decrease ' + field.label"
+          [disabled]="!canDecrease(field.key)"
+          (mousedown)="$event.preventDefault()"
+          (click)="nudge(field.key, -1)"
+        >
+          −
+        </button>
+        <button
+          type="button"
+          class="step-up"
+          tabindex="-1"
+          [attr.aria-label]="'Increase ' + field.label"
+          (mousedown)="$event.preventDefault()"
+          (click)="nudge(field.key, 1)"
+        >
+          +
+        </button>
+      </div>
+    </div>
   }
 </div>
 

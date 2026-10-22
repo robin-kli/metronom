@@ -3,6 +3,7 @@ import {
   MSG_CEILING_BELOW_START,
   MSG_WHOLE_NUMBER,
   Settings,
+  shiftRange,
   validate,
 } from './settings';
 
@@ -44,6 +45,28 @@ describe('validate', () => {
       expect(result).toEqual({ ok: true });
     } else {
       expect(result).toEqual({ ok: false, message });
+    }
+  });
+});
+
+describe('shiftRange', () => {
+  const cases: [string, Settings, number, Settings | 'same'][] = [
+    ['up', s(60, 120, 5, 4), 1, s(61, 121, 5, 4)],
+    ['down', s(60, 120, 5, 4), -1, s(59, 119, 5, 4)],
+    ['down to the floor', s(2, 40, 5, 4), -1, s(1, 39, 5, 4)],
+    ['down at the floor', s(1, 40, 5, 4), -1, 'same'],
+    ['empty start', s(null, 120, 5, 4), 1, 'same'],
+    ['empty ceiling', s(60, null, 5, 4), -1, 'same'],
+    ['decimal start', s(60.5, 120, 5, 4), 1, 'same'],
+    ['invalid step is carried along', s(60, 120, null, 4), 1, s(61, 121, null, 4)],
+  ];
+
+  it.each(cases)('%s', (_name, settings, delta, expected) => {
+    const result = shiftRange(settings, delta);
+    if (expected === 'same') {
+      expect(result).toBe(settings);
+    } else {
+      expect(result).toEqual(expected);
     }
   });
 });

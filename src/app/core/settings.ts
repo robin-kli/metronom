@@ -38,3 +38,15 @@ export function validate(settings: Settings): ValidationResult {
   }
   return { ok: true };
 }
+
+/**
+ * Moves the ramp: Start and Ceiling BPM shift together by `delta`, keeping their gap.
+ * Returns `settings` unchanged when either is not a positive whole number or Start would drop below 1.
+ */
+export function shiftRange(settings: Settings, delta: number): Settings {
+  const { startBpm, ceilingBpm } = settings;
+  if (!isPositiveWhole(startBpm) || !isPositiveWhole(ceilingBpm) || startBpm + delta < 1) {
+    return settings;
+  }
+  return { ...settings, startBpm: startBpm + delta, ceilingBpm: ceilingBpm + delta };
+}

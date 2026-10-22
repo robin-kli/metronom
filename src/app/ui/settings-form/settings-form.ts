@@ -43,6 +43,21 @@ export class SettingsForm {
     this.settings.update((current) => ({ ...current, [key]: parsed }));
   }
 
+  /** Stepper: changes one field by `delta`. An empty (or below 1) field steps up to 1; nothing goes below 1. */
+  protected nudge(key: keyof Settings, delta: number): void {
+    const value = this.settings()[key];
+    const next = value === null || value < 1 ? (delta > 0 ? 1 : null) : value + delta;
+    if (next === null || next < 1) {
+      return;
+    }
+    this.settings.update((current) => ({ ...current, [key]: next }));
+  }
+
+  protected canDecrease(key: keyof Settings): boolean {
+    const value = this.settings()[key];
+    return value !== null && value - 1 >= 1;
+  }
+
   protected toggleCountIn(): void {
     this.countIn.update((on) => !on);
   }

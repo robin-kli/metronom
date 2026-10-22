@@ -132,6 +132,65 @@ describe('SettingsForm', () => {
     expect(hint()).toBe('All fields need a whole number above 0');
   });
 
+  describe('steppers', () => {
+    const stepper = (label: string, dir: 'Increase' | 'Decrease') =>
+      el.querySelector(`button[aria-label="${dir} ${label}"]`) as HTMLButtonElement;
+
+    async function click(label: string, dir: 'Increase' | 'Decrease') {
+      stepper(label, dir).click();
+      await fixture.whenStable();
+    }
+
+    it('renders a −/+ pair under each field, outside the Tab order', () => {
+      const pairs = Array.from(el.querySelectorAll('.field')).map((f) =>
+        Array.from(f.querySelectorAll('.stepper button')).map((b) => b.getAttribute('aria-label')),
+      );
+      expect(pairs).toEqual([
+        ['Decrease Start BPM', 'Increase Start BPM'],
+        ['Decrease Ceiling BPM', 'Increase Ceiling BPM'],
+        ['Decrease Step (BPM)', 'Increase Step (BPM)'],
+        ['Decrease Every (bars)', 'Increase Every (bars)'],
+      ]);
+      for (const b of Array.from(el.querySelectorAll<HTMLButtonElement>('.stepper button'))) {
+        expect(b.type).toBe('button');
+        expect(b.tabIndex).toBe(-1);
+      }
+    });
+
+    it('+ and − change only their own field by 1', async () => {
+      await click('Step (BPM)', 'Increase');
+      expect(fixture.componentInstance.settings()).toEqual({ ...DEFAULT_SETTINGS, step: 6 });
+      expect(inputs().map((i) => i.value)).toEqual(['60', '120', '6', '4']);
+      await click('Ceiling BPM', 'Decrease');
+      expect(fixture.componentInstance.settings()).toEqual({
+        ...DEFAULT_SETTINGS,
+        step: 6,
+        ceilingBpm: 119,
+      });
+      expect(fixture.componentInstance.starts).toBe(0);
+    });
+
+    it('disables − at 1 and on an empty field; + on an empty field gives 1', async () => {
+      await type(3, '2');
+      await click('Every (bars)', 'Decrease');
+      expect(fixture.componentInstance.settings().interval).toBe(1);
+      expect(stepper('Every (bars)', 'Decrease').disabled).toBe(true);
+      await type(1, '');
+      expect(stepper('Ceiling BPM', 'Decrease').disabled).toBe(true);
+      await click('Ceiling BPM', 'Increase');
+      expect(fixture.componentInstance.settings().ceilingBpm).toBe(1);
+      await type(2, '-5');
+      await click('Step (BPM)', 'Increase');
+      expect(fixture.componentInstance.settings().step).toBe(1);
+    });
+
+    it('does not take focus away from a field on mousedown', () => {
+      const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+      stepper('Start BPM', 'Increase').dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+    });
+  });
+
   it('re-enables Start and clears the hint once fixed', async () => {
     await type(2, '0');
     expect(button().disabled).toBe(true);

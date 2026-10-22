@@ -2,7 +2,7 @@
 title: "EXPERIENCE: metronom"
 status: final
 created: 2026-10-16
-updated: 2026-10-16
+updated: 2026-10-22
 sources:
   - ../../prds/prd-metronom-2026-10-16/prd.md
   - ../../briefs/brief-metronom-2026-10-16/brief.md
@@ -41,6 +41,7 @@ Short, plain, no exclamation marks.
 | Component | State | Behavioral rules |
 |---|---|---|
 | Settings form | Idle | Four number fields in order Start BPM → Ceiling BPM → Step → Every. Tab moves through them in that order. Validation runs on every change. Enter in any field starts the Session if Settings are valid. |
+| Field steppers | Idle | Under each of the four Settings fields sits a row of two large buttons, "−" and "+", each half the field's width (see `DESIGN.md` stepper). They change only their own field by 1. "−" is disabled when the field is empty or the result would be below 1; "+" on an empty field sets it to 1. The steppers are not Tab stops and never take focus when clicked, so Tab order, Space and Enter behave exactly as before. The native spinner arrows inside the number fields are hidden. Labels for screen readers: "Decrease {label}" / "Increase {label}". (2026-10-22) |
 | Start button | Idle | Disabled while Settings are invalid. Click or spacebar starts the Session. |
 | Validation hint | Idle | One line under Start, showing the first problem only: "All fields need a whole number above 0" or "Ceiling must be at least the start BPM". Empty when valid. |
 | Song library | Idle | Under the Settings form, headed "Songs". Saved songs listed as "{Artist} – {Song} · {BPM} BPM", followed by " · max {My max}" when one is set, sorted by Artist then Song; the list scrolls when long. Clicking a song sets Ceiling BPM to its BPM, lowering Start BPM to it if Start is above ("My max" is information only and never changes the Settings). Each row has a ✎ edit button and a × remove button (no confirmation). Form: Artist, Song, BPM, My max (BPM), Save; Save is disabled until the input is valid (names not blank, BPM a whole number above 0, My max empty or a whole number above 0, with no upper limit and allowed above BPM), Enter in a field saves (or updates, in edit mode), and the form clears after saving. Saving an existing Artist + Song (case-insensitive) replaces it. ✎ loads the song into the same form (edit mode), replacing whatever was in it, and focuses Artist: the button reads "Update" and a "Cancel" button appears. Update changes the song in place, including Artist and Song; if the new Artist + Song matches another saved song, that one is replaced. Cancel, a successful Update, or removing the song being edited clears the form and leaves edit mode. "My max" is typed by hand; nothing updates it automatically. Empty state: "No saved songs yet". If saving to disk fails, the hint "Songs could not be saved" shows under the form. Hidden while Playing. |
@@ -65,11 +66,12 @@ Short, plain, no exclamation marks.
 
 - **Spacebar**: toggles Start/Stop from anywhere in the window, including while a field has focus. It never types a space into a field and never activates a focused button a second time.
 - **Enter**: in a field, starts the Session (same as Start).
+- **Arrow Up / Arrow Down** (Idle only): shifts Start BPM **and** Ceiling BPM together by +1 / −1, so the ramp keeps its width and just moves. Works from anywhere in the window, including inside the four Settings fields, where it replaces the browser's own +1 on that field. Holding the key repeats. Down does nothing once Start BPM is 1 (both stay put, so the gap is never squeezed). Does nothing if Start or Ceiling is empty or not a whole number. Exempt: the Song library fields (Artist, Song, BPM, My max) keep their normal arrow-key behaviour. While Playing the arrows do nothing, because Settings are locked (FR-3). Modifier combos (Ctrl/Alt/Meta) are ignored. `[ASSUMPTION: Idle only; Shift+arrow has no special meaning] (2026-10-22)`
 - **Tab / Shift+Tab**: moves through the fields and the Start button.
-- **Mouse**: click Start / Stop. No other mouse-only actions.
+- **Mouse**: click Start / Stop and the field steppers. No mouse-only actions: everything the steppers do can be typed.
 - **Escape**: stops a running Session (same as Stop). `[ASSUMPTION]`
 
-Not included: tap tempo, scroll-to-change values, drag, right-click menus.
+Not included: tap tempo, scroll-to-change values, drag, right-click menus, press-and-hold auto-repeat on the stepper buttons (the arrow keys already repeat).
 
 ## Accessibility Floor
 

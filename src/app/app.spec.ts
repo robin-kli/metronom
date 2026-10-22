@@ -536,6 +536,76 @@ describe('App', () => {
       expect(stops).toBe(0);
     });
 
+    it('ArrowUp / ArrowDown shift Start and Ceiling together and prevent default', async () => {
+      const { session, settle, inputs } = await setup();
+      const up = key(window, 'ArrowUp');
+      await settle();
+      expect(up.defaultPrevented).toBe(true);
+      expect(session.settings()).toEqual({ startBpm: 61, ceilingBpm: 121, step: 5, interval: 4 });
+      expect(inputs().map((i) => i.value)).toEqual(['61', '121', '5', '4']);
+      key(window, 'ArrowDown', { repeat: true });
+      key(window, 'ArrowDown', { repeat: true });
+      await settle();
+      expect(session.settings()).toEqual({ startBpm: 59, ceilingBpm: 119, step: 5, interval: 4 });
+    });
+
+    it('ArrowUp in a settings field shifts the range instead of that field', async () => {
+      const { session, settle, inputs } = await setup();
+      const step = inputs()[2];
+      step.focus();
+      const event = key(step, 'ArrowUp');
+      await settle();
+      expect(event.defaultPrevented).toBe(true);
+      expect(session.settings()).toEqual({ startBpm: 61, ceilingBpm: 121, step: 5, interval: 4 });
+    });
+
+    it('ArrowDown at Start 1 and with an empty Start changes nothing', async () => {
+      const { session, settle, makeInvalid } = await setup();
+      session.updateSettings({ startBpm: 1, ceilingBpm: 40, step: 5, interval: 4 });
+      key(window, 'ArrowDown');
+      await settle();
+      expect(session.settings()).toEqual({ startBpm: 1, ceilingBpm: 40, step: 5, interval: 4 });
+      await makeInvalid();
+      key(window, 'ArrowUp');
+      await settle();
+      expect(session.settings()).toEqual({ startBpm: null, ceilingBpm: 40, step: 5, interval: 4 });
+    });
+
+    it('arrows in a song library field keep their native behaviour', async () => {
+      const { el, session, settle } = await setup();
+      const songBpm = el.querySelector('app-song-library input[name="bpm"]') as HTMLInputElement;
+      songBpm.focus();
+      const event = key(songBpm, 'ArrowUp');
+      await settle();
+      expect(event.defaultPrevented).toBe(false);
+      expect(session.settings().startBpm).toBe(60);
+      expect(session.settings().ceilingBpm).toBe(120);
+    });
+
+    it('arrows on a focused song library button still shift the range', async () => {
+      const { el, session, settle } = await setup();
+      const save = el.querySelector('app-song-library button') as HTMLButtonElement;
+      const event = key(save, 'ArrowUp');
+      await settle();
+      expect(event.defaultPrevented).toBe(true);
+      expect(session.settings().startBpm).toBe(61);
+    });
+
+    it('arrows do nothing while playing or with Ctrl, Alt or Meta', async () => {
+      const { session, settle, play } = await setup();
+      for (const mod of ['ctrlKey', 'altKey', 'metaKey'] as const) {
+        expect(key(window, 'ArrowUp', { [mod]: true }).defaultPrevented).toBe(false);
+      }
+      await settle();
+      expect(session.settings().startBpm).toBe(60);
+      await play();
+      key(window, 'ArrowUp');
+      key(window, 'ArrowDown');
+      await settle();
+      expect(session.settings().startBpm).toBe(60);
+      expect(session.settings().ceilingBpm).toBe(120);
+    });
+
     it('ignores Space with Ctrl, Alt or Meta', async () => {
       const { session, settle, inputs } = await setup();
       for (const mod of ['ctrlKey', 'altKey', 'metaKey'] as const) {
