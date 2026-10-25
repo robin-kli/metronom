@@ -4,6 +4,7 @@ import { Scheduler, SchedulerOptions } from './audio/scheduler';
 import { BeatEvent } from './core/beat-event';
 import { SESSION_PLATFORM, SessionPlatform } from './session/session-platform';
 import { SessionService } from './session/session.service';
+import { TAP_CLOCK } from './session/tap-tempo.service';
 import { SONG_STORAGE, SONG_STORAGE_KEY } from './session/song-library.service';
 
 describe('App', () => {
@@ -615,6 +616,168 @@ describe('App', () => {
       await settle();
       expect(session.status()).toBe('idle');
       expect(starts).toBe(0);
+    });
+  });
+  describe('ramp switch and tap tempo', () => {
+    let clock: number;
+    let current: { destroy(): void } | null = null;
+
+    function key(target: EventTarget, k: string, init: KeyboardEventInit = {}): KeyboardEvent {
+      const event = new KeyboardEvent('keydown', {
+        key: k,
+        bubbles: true,
+        cancelable: true,
+        ...init,
+      });
+      target.dispatchEvent(event);
+      return event;
+    }
+
+    async function setup() {
+      clock = 0;
+      TestBed.overrideProvider(TAP_CLOCK, { useValue: () => clock });
+      const fixture = TestBed.createComponent(App);
+      current = fixture;
+      const el = fixture.nativeElement as HTMLElement;
+      document.body.appendChild(el);
+      await fixture.whenStable();
+      const session = TestBed.inject(SessionService);
+      const settle = async () => {
+        await new Promise((r) => setTimeout(r));
+        await fixture.whenStable();
+      };
+      const values = () =>
+        Array.from(el.querySelectorAll<HTMLInputElement>('app-settings-form input')).map(
+          (i) => i.value,
+        );
+      const rampOff = async () => {
+        (el.querySelector('button.ramp') as HTMLButtonElement).click();
+        await fixture.whenStable();
+      };
+      return { fixture, el, session, settle, values, rampOff };
+    }
+
+    afterEach(() => {
+      current?.destroy();
+      current = null;
+      document.querySelectorAll('app-root').forEach((n) => n.remove());
+    });
+
+    it('Ramp off: Space plays every bar at Tempo with the constant texts', async () => {
+      const { el, session, settle, values, rampOff } = await setup();
+      await rampOff();
+      expect(session.ramp()).toBe(false);
+      expect(values()).toEqual(['60']);
+      const tempo = el.querySelector('app-settings-form input') as HTMLInputElement;
+      tempo.value = '90';
+      tempo.dispatchEvent(new Event('input'));
+      await settle();
+      key(window, ' ');
+      await settle();
+      expect(session.status()).toBe('playing');
+      expect(el.querySelector('.summary')?.textContent?.trim()).toBe(
+        '90 BPM · constant · count-in',
+      );
+      onEvent!({
+        audioTime: 0,
+        beat: 1,
+        barIndex: 0,
+        tempo: 90,
+        hold: true,
+        barsToNext: 0,
+        countIn: false,
+      });
+      frame!();
+      await settle();
+      expect(el.querySelector('app-beat-display .status')?.textContent?.trim()).toBe(
+        'Steady at 90 BPM',
+      );
+      session.stop();
+      await settle();
+      expect(values()).toEqual(['90']);
+    });
+
+    it('Ramp off: arrows shift the Tempo only', async () => {
+      const { session, settle, rampOff } = await setup();
+      await rampOff();
+      expect(key(window, 'ArrowUp').defaultPrevented).toBe(true);
+      await settle();
+      expect(session.settings()).toMatchObject({ startBpm: 61, ceilingBpm: 120 });
+      key(window, 'ArrowDown');
+      key(window, 'ArrowDown');
+      await settle();
+      expect(session.settings()).toMatchObject({ startBpm: 59, ceilingBpm: 120 });
+    });
+
+    it('Ramp off: a song sets the Tempo and leaves the hidden Ceiling alone', async () => {
+      songData.set(
+        SONG_STORAGE_KEY,
+        JSON.stringify([{ artist: 'Metallica', title: 'One', bpm: 140 }]),
+      );
+      const { el, session, settle, values, rampOff } = await setup();
+      await rampOff();
+      (el.querySelector('app-song-library .pick') as HTMLButtonElement).click();
+      await settle();
+      expect(values()).toEqual(['140']);
+      expect(session.settings()).toMatchObject({ startBpm: 140, ceilingBpm: 120 });
+      // Switching Ramp back on raises the Ceiling to Start.
+      (el.querySelector('button.ramp') as HTMLButtonElement).click();
+      await settle();
+      expect(values()).toEqual(['140', '140', '5', '4']);
+    });
+
+    it('T five times 500 ms apart: Start reads 120, readout "120" and "5 taps"', async () => {
+      const { el, settle, values } = await setup();
+      for (let i = 0; i < 5; i++) {
+        clock = i * 500;
+        expect(key(window, i % 2 ? 'T' : 't').defaultPrevented).toBe(true);
+      }
+      await settle();
+      expect(values()[0]).toBe('120');
+      expect(el.querySelector('.tap-value')?.textContent?.trim()).toBe('120');
+      expect(el.querySelector('.tap-count')?.textContent?.trim()).toBe('5 taps');
+    });
+
+    it('T in a settings field taps and never types', async () => {
+      const { el, session, settle } = await setup();
+      const start = el.querySelector('app-settings-form input') as HTMLInputElement;
+      start.focus();
+      expect(key(start, 't').defaultPrevented).toBe(true);
+      clock = 400;
+      key(start, 't');
+      await settle();
+      expect(session.settings()).toMatchObject({ startBpm: 150, ceilingBpm: 150 });
+    });
+
+    it('T in the Artist field types a "t" and does not tap', async () => {
+      const { el, settle } = await setup();
+      const artist = el.querySelector('app-song-library input[name="artist"]') as HTMLInputElement;
+      artist.focus();
+      expect(key(artist, 't').defaultPrevented).toBe(false);
+      await settle();
+      expect(el.querySelector('.tap-count')?.textContent?.trim()).toBe('Tap at least twice');
+      expect(TestBed.inject(SessionService).settings().startBpm).toBe(60);
+    });
+
+    it('T ignores key repeat, modifiers and Playing', async () => {
+      const { session, settle } = await setup();
+      key(window, 't');
+      clock = 500;
+      key(window, 't', { repeat: true });
+      for (const mod of ['ctrlKey', 'altKey', 'metaKey'] as const) {
+        expect(key(window, 't', { [mod]: true }).defaultPrevented).toBe(false);
+      }
+      await settle();
+      expect(session.settings().startBpm).toBe(60);
+      await session.start();
+      await settle();
+      clock = 600;
+      key(window, 't');
+      clock = 1100;
+      key(window, 't');
+      await settle();
+      expect(session.settings().startBpm).toBe(60);
+      session.stop();
     });
   });
 });

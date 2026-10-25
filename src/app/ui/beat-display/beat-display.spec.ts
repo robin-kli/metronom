@@ -5,12 +5,18 @@ import { BeatDisplay } from './beat-display';
 
 @Component({
   imports: [BeatDisplay],
-  template: `<app-beat-display [event]="event()" [startBpm]="startBpm()" [step]="step()" />`,
+  template: `<app-beat-display
+    [event]="event()"
+    [startBpm]="startBpm()"
+    [step]="step()"
+    [ramp]="ramp()"
+  />`,
 })
 class Host {
   readonly event = signal<BeatEvent | null>(null);
   readonly startBpm = signal(60);
   readonly step = signal(5);
+  readonly ramp = signal(true);
 }
 
 function beatEvent(partial: Partial<BeatEvent>): BeatEvent {
@@ -133,5 +139,22 @@ describe('BeatDisplay', () => {
     expect(mutations).toBe(afterChange);
     expect(live.firstChild).toBe(textNode);
     observer.disconnect();
+  });
+
+  it('constant mode: "Steady at {tempo} BPM" from the first bar, count-in still shown', async () => {
+    const fixture = TestBed.createComponent(Host);
+    fixture.componentInstance.ramp.set(false);
+    fixture.componentInstance.event.set(
+      beatEvent({ beat: 1, barIndex: -1, tempo: 90, countIn: true, hold: false, barsToNext: 0 }),
+    );
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(text(el, '.status')).toBe('Count-in');
+    fixture.componentInstance.event.set(
+      beatEvent({ beat: 1, barIndex: 0, tempo: 90, hold: true, barsToNext: 0 }),
+    );
+    await fixture.whenStable();
+    expect(text(el, '.status')).toBe('Steady at 90 BPM');
+    expect(text(el, '.bpm-value')).toBe('90');
   });
 });

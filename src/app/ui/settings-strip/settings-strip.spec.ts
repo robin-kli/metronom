@@ -8,12 +8,14 @@ import { SettingsStrip } from './settings-strip';
   template: `<app-settings-strip
     [settings]="settings()"
     [countIn]="countIn()"
+    [ramp]="ramp()"
     (stop)="stops = stops + 1"
   />`,
 })
 class Host {
   readonly settings = signal<Settings>({ startBpm: 60, ceilingBpm: 120, step: 5, interval: 4 });
   readonly countIn = signal(false);
+  readonly ramp = signal(true);
   stops = 0;
 }
 
@@ -45,5 +47,23 @@ describe('SettingsStrip', () => {
     expect(
       (fixture.nativeElement as HTMLElement).querySelector('.summary')?.textContent?.trim(),
     ).toBe('60 → 72 BPM · +6 every 1 bar');
+  });
+
+  it('reads "{n} BPM · constant" with Ramp off, plus count-in', async () => {
+    const fixture = TestBed.createComponent(Host);
+    fixture.componentInstance.ramp.set(false);
+    fixture.componentInstance.settings.set({
+      startBpm: 90,
+      ceilingBpm: null,
+      step: null,
+      interval: 4,
+    });
+    await fixture.whenStable();
+    const summary = () =>
+      (fixture.nativeElement as HTMLElement).querySelector('.summary')?.textContent?.trim();
+    expect(summary()).toBe('90 BPM · constant');
+    fixture.componentInstance.countIn.set(true);
+    await fixture.whenStable();
+    expect(summary()).toBe('90 BPM · constant · count-in');
   });
 });

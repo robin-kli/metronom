@@ -179,4 +179,9 @@ describe('applySong', () => {
   ])('%s', (_name, settings, bpm, expected) => {
     expect(applySong(settings, bpm)).toEqual(expected);
   });
+
+  it('in constant mode sets only Start, leaving the hidden Ceiling alone', () => {
+    expect(applySong(s(60, 120), 140, false)).toEqual(s(140, 120));
+    expect(applySong(s(100, 120), 90, false)).toEqual(s(90, 120));
+  });
 });

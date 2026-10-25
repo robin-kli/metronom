@@ -1,7 +1,13 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { BeatEvent } from '../core/beat-event';
 import { ValidSettings } from '../core/ramp';
-import { DEFAULT_SETTINGS, Settings, validate } from '../core/settings';
+import {
+  applyRampOn,
+  constantSettings,
+  DEFAULT_SETTINGS,
+  Settings,
+  validate,
+} from '../core/settings';
 import { SESSION_PLATFORM, SessionAudioContext, SessionScheduler } from './session-platform';
 
 export type SessionStatus = 'idle' | 'playing';
@@ -9,8 +15,8 @@ export type SessionStatus = 'idle' | 'playing';
 export const MSG_NO_AUDIO = 'No audio output available';
 
 /**
- * Owns Settings, the count-in switch and the running Session.
- * Only `updateSettings`, `setCountIn`, `start` and `stop` mutate.
+ * Owns Settings, the Ramp and count-in switches and the running Session.
+ * Only `updateSettings`, `setRamp`, `setCountIn`, `start` and `stop` mutate.
  */
 @Injectable({ providedIn: 'root' })
 export class SessionService {
@@ -21,6 +27,7 @@ export class SessionService {
   private readonly _current = signal<BeatEvent | null>(null);
   private readonly _audioError = signal<string | null>(null);
   private readonly _countIn = signal(true);
+  private readonly _ramp = signal(true);
 
   readonly settings = this._settings.asReadonly();
   readonly status = this._status.asReadonly();
@@ -28,6 +35,8 @@ export class SessionService {
   readonly audioError = this._audioError.asReadonly();
   /** Whether a Session starts with a one-bar count-in. On at launch, not persisted. */
   readonly countIn = this._countIn.asReadonly();
+  /** Whether the Session ramps (on) or plays steadily at Start BPM (off). On at launch, not persisted. */
+  readonly ramp = this._ramp.asReadonly();
 
   private ctx: SessionAudioContext | null = null;
   private scheduler: SessionScheduler | null = null;
@@ -45,6 +54,20 @@ export class SessionService {
     this._audioError.set(null);
   }
 
+  /**
+   * Switches Ramp on or off. Ignored while playing. Switching it on raises a hidden Ceiling that
+   * is below Start up to Start; all other values are kept.
+   */
+  setRamp(on: boolean): void {
+    if (this._status() === 'playing' || this._ramp() === on) {
+      return;
+    }
+    this._ramp.set(on);
+    if (on) {
+      this.updateSettings(applyRampOn(this._settings()));
+    }
+  }
+
   /** Switches the count-in on or off. Ignored while playing. */
   setCountIn(on: boolean): void {
     if (this._status() === 'playing') {
@@ -55,7 +78,7 @@ export class SessionService {
 
   /**
    * Starts a Session with the current Settings: an optional one-bar count-in at the Start BPM
-   * (if `countIn` is on), then ramp bar 0. Resolves to true once playing;
+   * (if `countIn` is on), then ramp bar 0. With Ramp off every bar plays at Start BPM. Resolves to true once playing;
    * false if Settings are invalid, it is already playing, or audio is unavailable.
    */
   async start(): Promise<boolean> {
@@ -63,7 +86,8 @@ export class SessionService {
       return false;
     }
     const settings = this._settings();
-    if (!validate(settings).ok) {
+    const ramp = this._ramp();
+    if (!validate(settings, ramp).ok) {
       return false;
     }
     const generation = ++this.generation;
@@ -85,7 +109,8 @@ export class SessionService {
     this.queue = [];
     this._current.set(null);
     this._status.set('playing');
-    this.scheduler.start(settings as ValidSettings, (event) => this.enqueue(event), {
+    const played = ramp ? (settings as ValidSettings) : constantSettings(settings);
+    this.scheduler.start(played, (event) => this.enqueue(event), {
       countIn: this._countIn(),
     });
     this.frame = this.platform.requestAnimationFrame(() => this.publish());

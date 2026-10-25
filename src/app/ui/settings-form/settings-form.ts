@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, model, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Settings, validate } from '../../core/settings';
+import { TapPad } from '../tap-pad/tap-pad';
 
 interface Field {
   key: keyof Settings;
@@ -9,7 +10,7 @@ interface Field {
 
 @Component({
   selector: 'app-settings-form',
-  imports: [FormsModule],
+  imports: [FormsModule, TapPad],
   templateUrl: './settings-form.html',
   styleUrl: './settings-form.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -19,19 +20,25 @@ export class SettingsForm {
   readonly settings = model.required<Settings>();
   /** Whether the Session starts with a count-in, two-way bound to the parent. */
   readonly countIn = model.required<boolean>();
+  /** Ramp on (four fields) or off (constant mode: Tempo BPM only), two-way bound to the parent. */
+  readonly ramp = model(true);
   /** Emitted when the user presses Start with valid Settings. */
   readonly start = output<void>();
   /** A message from outside the form (e.g. audio failure), shown when Settings are valid. */
   readonly extraHint = input<string | null>(null);
 
-  protected readonly fields: readonly Field[] = [
+  private readonly rampFields: readonly Field[] = [
     { key: 'startBpm', label: 'Start BPM' },
     { key: 'ceilingBpm', label: 'Ceiling BPM' },
     { key: 'step', label: 'Step (BPM)' },
     { key: 'interval', label: 'Every (bars)' },
   ];
+  private readonly constantFields: readonly Field[] = [{ key: 'startBpm', label: 'Tempo BPM' }];
 
-  protected readonly validation = computed(() => validate(this.settings()));
+  /** With Ramp off only Start BPM is shown, as "Tempo BPM"; the hidden values are kept. */
+  protected readonly fields = computed(() => (this.ramp() ? this.rampFields : this.constantFields));
+
+  protected readonly validation = computed(() => validate(this.settings(), this.ramp()));
   protected readonly hint = computed(() => {
     const result = this.validation();
     return result.ok ? (this.extraHint() ?? '') : result.message;
@@ -56,6 +63,10 @@ export class SettingsForm {
   protected canDecrease(key: keyof Settings): boolean {
     const value = this.settings()[key];
     return value !== null && value - 1 >= 1;
+  }
+
+  protected toggleRamp(): void {
+    this.ramp.update((on) => !on);
   }
 
   protected toggleCountIn(): void {

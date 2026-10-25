@@ -3,6 +3,7 @@
     <app-settings-strip
       [settings]="session.settings()"
       [countIn]="session.countIn()"
+      [ramp]="session.ramp()"
       (stop)="onStop()"
     />
     <app-beat-display
@@ -10,6 +11,7 @@
       [event]="session.current()"
       [startBpm]="session.settings().startBpm ?? 0"
       [step]="session.settings().step ?? 0"
+      [ramp]="session.ramp()"
     />
   </main>
 } @else {
@@ -19,6 +21,8 @@
       (settingsChange)="onSettingsChange($event)"
       [countIn]="session.countIn()"
       (countInChange)="session.setCountIn($event)"
+      [ramp]="session.ramp()"
+      (rampChange)="session.setRamp($event)"
       [extraHint]="session.audioError()"
       (start)="onStart()"
     />

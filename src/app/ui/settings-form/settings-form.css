@@ -12,9 +12,19 @@
   gap: var(--space-4);
 }
 
+/* Constant mode: the single Tempo field keeps one grid column's width, centred. */
+.fields.constant {
+  grid-template-columns: minmax(0, calc((100% - 3 * var(--space-4)) / 4));
+  justify-content: center;
+}
+
 @media (max-width: 640px) {
   .fields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fields.constant {
+    grid-template-columns: minmax(0, calc((100% - var(--space-4)) / 2));
   }
 }
 
@@ -90,16 +100,23 @@ input::-webkit-inner-spin-button {
 }
 
 input:focus-visible,
-.count-in:focus-visible,
+.switch:focus-visible,
 .start:focus-visible {
   outline: 2px solid var(--color-text);
   outline-offset: 2px;
 }
 
-.count-in {
+.switches {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-6);
+}
+
+.switch {
   display: inline-flex;
   align-items: center;
-  align-self: center;
+  min-height: 48px;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   background: none;
@@ -130,13 +147,13 @@ input:focus-visible,
   border-radius: 50%;
 }
 
-.count-in[aria-checked='true'] .switch-track {
+.switch[aria-checked='true'] .switch-track {
   justify-content: flex-end;
   background: var(--color-surface-raised);
   border-color: var(--color-text);
 }
 
-.count-in[aria-checked='true'] .switch-thumb {
+.switch[aria-checked='true'] .switch-thumb {
   background: var(--color-text);
 }
 

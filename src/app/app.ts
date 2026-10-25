@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { Settings, shiftRange } from './core/settings';
+import { Settings, shiftRange, shiftTempo } from './core/settings';
 import { applySong, Song } from './core/songs';
 import { SessionService } from './session/session.service';
+import { TapTempoService } from './session/tap-tempo.service';
 import { BeatDisplay } from './ui/beat-display/beat-display';
 import { SettingsForm } from './ui/settings-form/settings-form';
 import { SettingsStrip } from './ui/settings-strip/settings-strip';
@@ -17,14 +18,18 @@ import { SongLibrary } from './ui/song-library/song-library';
 })
 export class App {
   protected readonly session = inject(SessionService);
+  private readonly tapTempo = inject(TapTempoService);
 
   protected onSettingsChange(settings: Settings): void {
     this.session.updateSettings(settings);
   }
 
-  /** Quick-selects a saved song: its BPM becomes the Ceiling. Refused while playing. */
+  /**
+   * Quick-selects a saved song: its BPM becomes the Ceiling (in constant mode, the Tempo).
+   * Refused while playing.
+   */
   protected onSongSelect(song: Song): void {
-    this.session.updateSettings(applySong(this.session.settings(), song.bpm));
+    this.session.updateSettings(applySong(this.session.settings(), song.bpm, this.session.ramp()));
   }
 
   protected onStart(): void {
@@ -37,7 +42,8 @@ export class App {
 
   /**
    * The only keyboard handler: Space toggles (except in song name fields), Enter in a settings field starts,
-   * Escape stops, and ArrowUp/ArrowDown shift Start and Ceiling BPM by 1 while idle (except in song fields).
+   * Escape stops, ArrowUp/ArrowDown shift Start and Ceiling BPM by 1 while idle (Start only with Ramp off;
+   * except in song fields), and T taps the tempo while idle (except in song name fields).
    */
   protected onKeydown(event: KeyboardEvent): void {
     if (event.ctrlKey || event.altKey || event.metaKey) {
@@ -81,11 +87,26 @@ export class App {
         }
         // Replace the native +1 on a focused settings field; auto-repeat is welcome here.
         event.preventDefault();
-        this.session.updateSettings(
-          shiftRange(this.session.settings(), event.key === 'ArrowUp' ? 1 : -1),
-        );
+        this.shiftSettings(event.key === 'ArrowUp' ? 1 : -1);
+        return;
+      case 't':
+      case 'T':
+        if (playing || isSongTextField(event.target)) {
+          return;
+        }
+        // Never type a "t" into a settings field; holding T is one tap.
+        event.preventDefault();
+        if (!event.repeat) {
+          this.tapTempo.tap();
+        }
         return;
     }
+  }
+
+  /** Arrow keys: move the whole ramp, or only the Tempo in constant mode. */
+  private shiftSettings(delta: number): void {
+    const shift = this.session.ramp() ? shiftRange : shiftTempo;
+    this.session.updateSettings(shift(this.session.settings(), delta));
   }
 }
 

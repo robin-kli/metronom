@@ -14,6 +14,8 @@ export class BeatDisplay {
   /** Start BPM shown before the first Beat. */
   readonly startBpm = input.required<number>();
   readonly step = input.required<number>();
+  /** Whether the Session ramps; off means constant mode ("Steady at …"). */
+  readonly ramp = input(true);
 
   protected readonly beats = [1, 2, 3, 4] as const;
 
@@ -28,6 +30,9 @@ export class BeatDisplay {
     }
     if (event.countIn) {
       return 'Count-in';
+    }
+    if (!this.ramp()) {
+      return `Steady at ${event.tempo} BPM`;
     }
     if (event.hold) {
       return `Holding at ${event.tempo} BPM`;

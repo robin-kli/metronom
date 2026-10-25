@@ -112,8 +112,12 @@ export function serializeSongs(songs: readonly Song[]): string {
 /**
  * Settings after selecting a song: Ceiling becomes the song BPM, and Start is lowered to it
  * when it would otherwise be above it. Step and Interval are untouched.
+ * With `ramp` off (constant mode) only Start (Tempo BPM) becomes the song BPM.
  */
-export function applySong(settings: Settings, bpm: number): Settings {
+export function applySong(settings: Settings, bpm: number, ramp = true): Settings {
+  if (!ramp) {
+    return { ...settings, startBpm: bpm };
+  }
   const startBpm =
     typeof settings.startBpm === 'number' && settings.startBpm > bpm ? bpm : settings.startBpm;
   return { ...settings, startBpm, ceilingBpm: bpm };

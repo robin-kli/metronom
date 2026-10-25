@@ -273,4 +273,45 @@ describe('SessionService', () => {
     runFrame();
     expect(service.current()?.audioTime).toBe(999 * 0.5);
   });
+  describe('ramp switch', () => {
+    it('is on by default', () => {
+      expect(service.ramp()).toBe(true);
+    });
+
+    it('with Ramp off, plays every bar at Start even with an empty hidden Ceiling', async () => {
+      service.setRamp(false);
+      service.updateSettings({ startBpm: 90, ceilingBpm: null, step: 5, interval: 4 });
+      expect(await service.start()).toBe(true);
+      expect(scheduler.starts).toEqual([{ startBpm: 90, ceilingBpm: 90, step: 5, interval: 4 }]);
+      // Settings themselves are untouched.
+      expect(service.settings().ceilingBpm).toBeNull();
+    });
+
+    it('with Ramp off, refuses to start with an empty Tempo', async () => {
+      service.setRamp(false);
+      service.updateSettings({ startBpm: null, ceilingBpm: 120, step: 5, interval: 4 });
+      expect(await service.start()).toBe(false);
+      expect(scheduler.starts).toEqual([]);
+    });
+
+    it('switching Ramp back on raises a Ceiling below Start', () => {
+      service.setRamp(false);
+      service.updateSettings({ startBpm: 150, ceilingBpm: 120, step: 5, interval: 4 });
+      service.setRamp(true);
+      expect(service.ramp()).toBe(true);
+      expect(service.settings()).toEqual({ startBpm: 150, ceilingBpm: 150, step: 5, interval: 4 });
+    });
+
+    it('switching Ramp off keeps all values', () => {
+      service.setRamp(false);
+      expect(service.ramp()).toBe(false);
+      expect(service.settings()).toEqual(DEFAULT_SETTINGS);
+    });
+
+    it('ignores setRamp while playing', async () => {
+      await service.start();
+      service.setRamp(false);
+      expect(service.ramp()).toBe(true);
+    });
+  });
 });

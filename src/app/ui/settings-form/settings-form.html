@@ -1,5 +1,5 @@
-<div class="fields">
-  @for (field of fields; track field.key) {
+<div class="fields" [class.constant]="!ramp()">
+  @for (field of fields(); track field.key) {
     <div class="field">
       <label class="field-input">
         <span class="label">{{ field.label }}</span>
@@ -41,16 +41,30 @@
   }
 </div>
 
-<button
-  type="button"
-  class="count-in"
-  role="switch"
-  [attr.aria-checked]="countIn()"
-  (click)="toggleCountIn()"
->
-  <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
-  <span class="switch-label">Count-in</span>
-</button>
+<app-tap-pad class="tap-row" />
+
+<div class="switches">
+  <button
+    type="button"
+    class="switch ramp"
+    role="switch"
+    [attr.aria-checked]="ramp()"
+    (click)="toggleRamp()"
+  >
+    <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+    <span class="switch-label">Ramp</span>
+  </button>
+  <button
+    type="button"
+    class="switch count-in"
+    role="switch"
+    [attr.aria-checked]="countIn()"
+    (click)="toggleCountIn()"
+  >
+    <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+    <span class="switch-label">Count-in</span>
+  </button>
+</div>
 
 <button type="button" class="start" [disabled]="!validation().ok" (click)="onStart()">Start</button>
 

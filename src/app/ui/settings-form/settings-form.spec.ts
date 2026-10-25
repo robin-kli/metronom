@@ -2,7 +2,7 @@ import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NgModel } from '@angular/forms';
 import { By } from '@angular/platform-browser';
-import { DEFAULT_SETTINGS, Settings } from '../../core/settings';
+import { DEFAULT_SETTINGS, MSG_TEMPO_WHOLE, Settings } from '../../core/settings';
 import { SettingsForm } from './settings-form';
 
 @Component({
@@ -10,12 +10,14 @@ import { SettingsForm } from './settings-form';
   template: `<app-settings-form
     [(settings)]="settings"
     [(countIn)]="countIn"
+    [(ramp)]="ramp"
     (start)="starts = starts + 1"
   />`,
 })
 class Host {
   readonly settings = signal<Settings>({ ...DEFAULT_SETTINGS });
   readonly countIn = signal(true);
+  readonly ramp = signal(true);
   starts = 0;
 }
 
@@ -49,17 +51,23 @@ describe('SettingsForm', () => {
     expect(hint()).toBe('');
   });
 
-  it('shows a Count-in switch, on, between the fields and Start', () => {
+  it('shows a Count-in switch, on, in the switch row after Ramp', () => {
     const toggle = el.querySelector('button.count-in') as HTMLButtonElement;
     expect(toggle.type).toBe('button');
     expect(toggle.getAttribute('role')).toBe('switch');
     expect(toggle.getAttribute('aria-checked')).toBe('true');
     expect(toggle.textContent?.trim()).toBe('Count-in');
-    const order = Array.from(el.querySelector('app-settings-form')!.children).map(
-      (c) => c.className.split(' ')[0],
+    const switches = Array.from(el.querySelectorAll('.switches > button')).map((b) =>
+      b.textContent?.trim(),
     );
-    expect(order.indexOf('count-in')).toBeGreaterThan(order.indexOf('fields'));
-    expect(order.indexOf('count-in')).toBeLessThan(order.indexOf('start'));
+    expect(switches).toEqual(['Ramp', 'Count-in']);
+  });
+
+  it('orders fields, tap row, switches, Start, hint', () => {
+    const order = Array.from(el.querySelector('app-settings-form')!.children).map((c) =>
+      c.tagName === 'APP-TAP-PAD' ? 'tap-row' : c.className.split(' ')[0],
+    );
+    expect(order).toEqual(['fields', 'tap-row', 'switches', 'start', 'hint']);
   });
 
   it('toggles the count-in on click and writes it back, without starting', async () => {
@@ -189,6 +197,77 @@ describe('SettingsForm', () => {
       stepper('Start BPM', 'Increase').dispatchEvent(event);
       expect(event.defaultPrevented).toBe(true);
     });
+  });
+
+  describe('ramp switch', () => {
+    const rampSwitch = () => el.querySelector('button.ramp') as HTMLButtonElement;
+    const labels = () =>
+      Array.from(el.querySelectorAll('.label')).map((l) => l.textContent?.trim());
+
+    async function rampOff() {
+      rampSwitch().click();
+      await fixture.whenStable();
+    }
+
+    it('is a switch, on by default, left of Count-in', () => {
+      expect(rampSwitch().type).toBe('button');
+      expect(rampSwitch().getAttribute('role')).toBe('switch');
+      expect(rampSwitch().getAttribute('aria-checked')).toBe('true');
+      expect(rampSwitch().nextElementSibling?.classList).toContain('count-in');
+    });
+
+    it('toggles and writes back without starting', async () => {
+      await rampOff();
+      expect(fixture.componentInstance.ramp()).toBe(false);
+      expect(rampSwitch().getAttribute('aria-checked')).toBe('false');
+      expect(fixture.componentInstance.starts).toBe(0);
+      rampSwitch().click();
+      await fixture.whenStable();
+      expect(fixture.componentInstance.ramp()).toBe(true);
+    });
+
+    it('off: shows only the Tempo field and its steppers, keeping hidden values', async () => {
+      await rampOff();
+      expect(labels()).toEqual(['Tempo BPM']);
+      expect(inputs().map((i) => i.value)).toEqual(['60']);
+      expect(el.querySelectorAll('.stepper button')).toHaveLength(2);
+      expect(el.querySelector('button[aria-label="Increase Tempo BPM"]')).not.toBeNull();
+      expect(el.querySelector('.fields')?.classList).toContain('constant');
+      expect(fixture.componentInstance.settings()).toEqual(DEFAULT_SETTINGS);
+      // The relabelled field keeps its label tie.
+      expect(inputs()[0].closest('label')?.textContent).toContain('Tempo BPM');
+    });
+
+    it('off: validates only the Tempo', async () => {
+      fixture.componentInstance.settings.set({
+        startBpm: 150,
+        ceilingBpm: null,
+        step: 0,
+        interval: 4,
+      });
+      await fixture.whenStable();
+      expect(button().disabled).toBe(true);
+      await rampOff();
+      expect(button().disabled).toBe(false);
+      expect(hint()).toBe('');
+      await type(0, '');
+      expect(button().disabled).toBe(true);
+      expect(hint()).toBe(MSG_TEMPO_WHOLE);
+    });
+
+    it('on again: all four fields come back', async () => {
+      await rampOff();
+      rampSwitch().click();
+      await fixture.whenStable();
+      expect(labels()).toEqual(['Start BPM', 'Ceiling BPM', 'Step (BPM)', 'Every (bars)']);
+      expect(inputs().map((i) => i.value)).toEqual(['60', '120', '5', '4']);
+    });
+  });
+
+  it('hosts the tap row with a Tap button outside the Tab order', () => {
+    const tap = el.querySelector('app-tap-pad button.tap') as HTMLButtonElement;
+    expect(tap.tabIndex).toBe(-1);
+    expect(tap.getAttribute('aria-label')).toBe('Tap tempo, key T');
   });
 
   it('re-enables Start and clears the hint once fixed', async () => {

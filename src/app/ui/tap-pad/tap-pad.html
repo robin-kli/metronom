@@ -1,0 +1,22 @@
+<button
+  type="button"
+  class="tap"
+  tabindex="-1"
+  aria-label="Tap tempo, key T"
+  aria-keyshortcuts="T"
+  [class.pressed]="pressed()"
+  (pointerdown)="onPointerDown($event)"
+  (mousedown)="$event.preventDefault()"
+>
+  <span>Tap</span><span class="key-hint" aria-hidden="true">T</span>
+</button>
+<div class="readout" aria-hidden="true">
+  <p class="tap-bpm" [class.placeholder]="tap.bpm() === null">
+    <span class="tap-value">{{ tap.bpm() ?? '—' }}</span
+    ><span class="tap-unit">BPM</span>
+  </p>
+  <p class="tap-count">
+    {{ tap.bpm() === null ? 'Tap at least twice' : tap.count() + ' taps' }}
+  </p>
+</div>
+<p class="visually-hidden" aria-live="polite">{{ tap.announcement() }}</p>
