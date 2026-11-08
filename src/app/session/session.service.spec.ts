@@ -29,12 +29,16 @@ class FakeContext implements SessionAudioContext {
 class FakeScheduler implements SessionScheduler {
   starts: ValidSettings[] = [];
   options: (SchedulerOptions | undefined)[] = [];
+  updates: ValidSettings[] = [];
   stops = 0;
   onBeat: ((e: BeatEvent) => void) | null = null;
   start(settings: ValidSettings, onBeat: (e: BeatEvent) => void, options?: SchedulerOptions): void {
     this.starts.push(settings);
     this.options.push(options);
     this.onBeat = onBeat;
+  }
+  update(settings: ValidSettings): void {
+    this.updates.push(settings);
   }
   stop(): void {
     this.stops++;
@@ -312,6 +316,75 @@ describe('SessionService', () => {
       await service.start();
       service.setRamp(false);
       expect(service.ramp()).toBe(true);
+    });
+  });
+
+  describe('nudge', () => {
+    it('while idle shifts Start and Ceiling, and the Tempo only with Ramp off', () => {
+      service.nudge(1);
+      expect(service.settings()).toEqual({ startBpm: 61, ceilingBpm: 121, step: 5, interval: 4 });
+      service.setRamp(false);
+      service.nudge(-1);
+      expect(service.settings()).toEqual({ startBpm: 60, ceilingBpm: 121, step: 5, interval: 4 });
+      expect(scheduler.updates).toEqual([]);
+    });
+
+    it('while playing updates the running scheduler without restarting', async () => {
+      await service.start();
+      scheduler.emit(0.05, 1, 5);
+      service.nudge(1);
+      expect(service.status()).toBe('playing');
+      expect(service.settings()).toEqual({ startBpm: 61, ceilingBpm: 121, step: 5, interval: 4 });
+      expect(scheduler.updates).toEqual([{ startBpm: 61, ceilingBpm: 121, step: 5, interval: 4 }]);
+      expect(scheduler.starts).toHaveLength(1);
+      expect(scheduler.stops).toBe(0);
+    });
+
+    it('while playing with Ramp off plays the new Tempo steadily', async () => {
+      service.updateSettings({ startBpm: 90, ceilingBpm: null, step: null, interval: 4 });
+      service.setRamp(false);
+      await service.start();
+      service.nudge(-1);
+      expect(service.settings()).toEqual({
+        startBpm: 89,
+        ceilingBpm: null,
+        step: null,
+        interval: 4,
+      });
+      expect(scheduler.updates).toEqual([{ startBpm: 89, ceilingBpm: 89, step: 1, interval: 4 }]);
+    });
+
+    it('never drops Start below 1, idle or playing', async () => {
+      service.updateSettings({ startBpm: 1, ceilingBpm: 40, step: 5, interval: 4 });
+      service.nudge(-1);
+      expect(service.settings().startBpm).toBe(1);
+      await service.start();
+      service.nudge(-1);
+      expect(service.settings().startBpm).toBe(1);
+      expect(scheduler.updates).toEqual([]);
+    });
+
+    it('updateSettings stays refused while playing', async () => {
+      await service.start();
+      service.nudge(1);
+      service.updateSettings({ startBpm: 10, ceilingBpm: 20, step: 1, interval: 1 });
+      expect(service.settings().startBpm).toBe(61);
+    });
+
+    it('a nudge while resume() is pending is what the scheduler starts with', async () => {
+      const starting = service.start();
+      service.nudge(1);
+      expect(await starting).toBe(true);
+      expect(service.settings()).toEqual({ startBpm: 61, ceilingBpm: 121, step: 5, interval: 4 });
+      expect(scheduler.starts).toEqual([{ startBpm: 61, ceilingBpm: 121, step: 5, interval: 4 }]);
+    });
+
+    it('after stop, nudges no longer reach the scheduler', async () => {
+      await service.start();
+      service.stop();
+      service.nudge(1);
+      expect(service.settings().startBpm).toBe(61);
+      expect(scheduler.updates).toEqual([]);
     });
   });
 });

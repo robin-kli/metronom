@@ -26,6 +26,9 @@
       [extraHint]="session.audioError()"
       (start)="onStart()"
     />
-    <app-song-library (songSelect)="onSongSelect($event)" />
+    <div class="libraries">
+      <app-song-library kind="songs" (songSelect)="onSongSelect($event)" />
+      <app-song-library kind="exercises" (songSelect)="onSongSelect($event)" />
+    </div>
   </main>
 }

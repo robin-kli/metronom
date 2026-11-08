@@ -6,6 +6,8 @@ import {
   constantSettings,
   DEFAULT_SETTINGS,
   Settings,
+  shiftRange,
+  shiftTempo,
   validate,
 } from '../core/settings';
 import { SESSION_PLATFORM, SessionAudioContext, SessionScheduler } from './session-platform';
@@ -16,7 +18,7 @@ export const MSG_NO_AUDIO = 'No audio output available';
 
 /**
  * Owns Settings, the Ramp and count-in switches and the running Session.
- * Only `updateSettings`, `setRamp`, `setCountIn`, `start` and `stop` mutate.
+ * Only `updateSettings`, `nudge`, `setRamp`, `setCountIn`, `start` and `stop` mutate.
  */
 @Injectable({ providedIn: 'root' })
 export class SessionService {
@@ -55,6 +57,29 @@ export class SessionService {
   }
 
   /**
+   * Arrow keys: moves the whole ramp (Start and Ceiling) by `delta`, or only the Tempo with Ramp off.
+   * Works while playing too: the running Session picks up the new Settings from the next scheduled
+   * beat, without restarting (no count-in replay, bar position kept). Start never drops below 1.
+   */
+  nudge(delta: number): void {
+    const ramp = this._ramp();
+    const current = this._settings();
+    const shifted = (ramp ? shiftRange : shiftTempo)(current, delta);
+    if (shifted === current) {
+      return;
+    }
+    if (this._status() !== 'playing') {
+      this.updateSettings(shifted);
+      return;
+    }
+    if (!validate(shifted, ramp).ok) {
+      return;
+    }
+    this._settings.set({ ...shifted });
+    this.scheduler?.update(ramp ? { ...(shifted as ValidSettings) } : constantSettings(shifted));
+  }
+
+  /**
    * Switches Ramp on or off. Ignored while playing. Switching it on raises a hidden Ceiling that
    * is below Start up to Start; all other values are kept.
    */
@@ -85,9 +110,7 @@ export class SessionService {
     if (this._status() === 'playing') {
       return false;
     }
-    const settings = this._settings();
-    const ramp = this._ramp();
-    if (!validate(settings, ramp).ok) {
+    if (!validate(this._settings(), this._ramp()).ok) {
       return false;
     }
     const generation = ++this.generation;
@@ -104,12 +127,18 @@ export class SessionService {
     if (generation !== this.generation || this._status() === 'playing') {
       return false;
     }
+    // Read again: a nudge may have changed Settings while resume() was pending.
+    const settings = this._settings();
+    const ramp = this._ramp();
+    if (!validate(settings, ramp).ok) {
+      return false;
+    }
     this._audioError.set(null);
     this.scheduler ??= this.platform.createScheduler(ctx);
     this.queue = [];
     this._current.set(null);
     this._status.set('playing');
-    const played = ramp ? (settings as ValidSettings) : constantSettings(settings);
+    const played = ramp ? { ...(settings as ValidSettings) } : constantSettings(settings);
     this.scheduler.start(played, (event) => this.enqueue(event), {
       countIn: this._countIn(),
     });

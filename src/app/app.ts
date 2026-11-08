@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { Settings, shiftRange, shiftTempo } from './core/settings';
+import { Settings } from './core/settings';
 import { applySong, Song } from './core/songs';
 import { SessionService } from './session/session.service';
 import { TapTempoService } from './session/tap-tempo.service';
@@ -25,7 +25,7 @@ export class App {
   }
 
   /**
-   * Quick-selects a saved song: its BPM becomes the Ceiling (in constant mode, the Tempo).
+   * Quick-selects a saved song or exercise: its BPM becomes the Ceiling (in constant mode, the Tempo).
    * Refused while playing.
    */
   protected onSongSelect(song: Song): void {
@@ -42,8 +42,8 @@ export class App {
 
   /**
    * The only keyboard handler: Space toggles (except in song name fields), Enter in a settings field starts,
-   * Escape stops, ArrowUp/ArrowDown shift Start and Ceiling BPM by 1 while idle (Start only with Ramp off;
-   * except in song fields), and T taps the tempo while idle (except in song name fields).
+   * Escape stops, ArrowUp/ArrowDown shift Start and Ceiling BPM by 1, idle or playing (Start only with Ramp off;
+   * except in library fields), and T taps the tempo while idle (except in song name fields).
    */
   protected onKeydown(event: KeyboardEvent): void {
     if (event.ctrlKey || event.altKey || event.metaKey) {
@@ -82,12 +82,13 @@ export class App {
         return;
       case 'ArrowUp':
       case 'ArrowDown':
-        if (playing || isSongField(event.target)) {
+        if (isSongField(event.target)) {
           return;
         }
         // Replace the native +1 on a focused settings field; auto-repeat is welcome here.
+        // While playing, the running Session speeds up / slows down from the next beat.
         event.preventDefault();
-        this.shiftSettings(event.key === 'ArrowUp' ? 1 : -1);
+        this.session.nudge(event.key === 'ArrowUp' ? 1 : -1);
         return;
       case 't':
       case 'T':
@@ -101,12 +102,6 @@ export class App {
         }
         return;
     }
-  }
-
-  /** Arrow keys: move the whole ramp, or only the Tempo in constant mode. */
-  private shiftSettings(delta: number): void {
-    const shift = this.session.ramp() ? shiftRange : shiftTempo;
-    this.session.updateSettings(shift(this.session.settings(), delta));
   }
 }
 

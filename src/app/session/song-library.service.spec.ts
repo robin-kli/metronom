@@ -1,6 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { Song } from '../core/songs';
 import {
+  EXERCISE_STORAGE_KEY,
+  ExerciseLibraryService,
+  MSG_EXERCISES_NOT_SAVED,
   MSG_SONGS_NOT_SAVED,
   SONG_STORAGE,
   SONG_STORAGE_KEY,
@@ -113,5 +116,59 @@ describe('SongLibraryService', () => {
     lib.save(one);
     expect(lib.songs()).toEqual([one]);
     expect(lib.saveError()).toBe(MSG_SONGS_NOT_SAVED);
+  });
+});
+
+describe('ExerciseLibraryService', () => {
+  let storage: FakeStorage;
+  const stickControl: Song = { artist: 'Stick Control', title: 'p.5', bpm: 100, maxBpm: null };
+
+  function create(store: SongStorage | null = storage) {
+    TestBed.configureTestingModule({ providers: [{ provide: SONG_STORAGE, useValue: store }] });
+    return {
+      exercises: TestBed.inject(ExerciseLibraryService),
+      songs: TestBed.inject(SongLibraryService),
+    };
+  }
+
+  beforeEach(() => {
+    storage = new FakeStorage();
+  });
+
+  it('is a separate instance from the song library', () => {
+    const { exercises, songs } = create();
+    expect(exercises).not.toBe(songs);
+  });
+
+  it('saves under its own key only, leaving songs alone', () => {
+    const { exercises, songs } = create();
+    exercises.save(stickControl);
+    expect(exercises.songs()).toEqual([stickControl]);
+    expect(songs.songs()).toEqual([]);
+    expect(JSON.parse(storage.data.get(EXERCISE_STORAGE_KEY)!)).toEqual([stickControl]);
+    expect(storage.data.has(SONG_STORAGE_KEY)).toBe(false);
+  });
+
+  it('starts empty when only songs are stored, and songs stay unchanged', () => {
+    storage.data.set(SONG_STORAGE_KEY, JSON.stringify([one]));
+    const { exercises, songs } = create();
+    expect(exercises.songs()).toEqual([]);
+    expect(songs.songs()).toEqual([one]);
+    expect(JSON.parse(storage.data.get(SONG_STORAGE_KEY)!)).toEqual([one]);
+  });
+
+  it('loads stored exercises on construction', () => {
+    storage.data.set(EXERCISE_STORAGE_KEY, JSON.stringify([stickControl]));
+    expect(create().exercises.songs()).toEqual([stickControl]);
+  });
+
+  it('reports "Exercises could not be saved" on write failure', () => {
+    const { exercises, songs } = create();
+    storage.failWrites = true;
+    exercises.save(stickControl);
+    expect(exercises.songs()).toEqual([stickControl]);
+    expect(exercises.saveError()).toBe(MSG_EXERCISES_NOT_SAVED);
+    expect(MSG_EXERCISES_NOT_SAVED).toBe('Exercises could not be saved');
+    expect(songs.saveError()).toBeNull();
   });
 });

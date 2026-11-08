@@ -31,7 +31,11 @@ describe('TapPad', () => {
         resume: async () => undefined,
         suspend: async () => undefined,
       }),
-      createScheduler: () => ({ start: () => undefined, stop: () => undefined }),
+      createScheduler: () => ({
+        start: () => undefined,
+        update: () => undefined,
+        stop: () => undefined,
+      }),
       requestAnimationFrame: () => 1,
       cancelAnimationFrame: () => undefined,
     };

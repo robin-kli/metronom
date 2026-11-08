@@ -4,12 +4,27 @@ import {
   ElementRef,
   computed,
   inject,
+  input,
   output,
   signal,
   viewChild,
 } from '@angular/core';
 import { Song, songKey, validateSong } from '../../core/songs';
-import { SongLibraryService } from '../../session/song-library.service';
+import { ExerciseLibraryService, SongLibraryService } from '../../session/song-library.service';
+
+export type LibraryKind = 'songs' | 'exercises';
+
+/** Visible wording per library; the entries themselves are identical. */
+const TEXT: Record<LibraryKind, { heading: string; empty: string; source: string; name: string }> =
+  {
+    songs: { heading: 'Songs', empty: 'No saved songs yet', source: 'Artist', name: 'Song' },
+    exercises: {
+      heading: 'Exercises',
+      empty: 'No saved exercises yet',
+      source: 'Source',
+      name: 'Exercise',
+    },
+  };
 
 @Component({
   selector: 'app-song-library',
@@ -18,9 +33,18 @@ import { SongLibraryService } from '../../session/song-library.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SongLibrary {
-  protected readonly library = inject(SongLibraryService);
+  private readonly songs = inject(SongLibraryService);
+  private readonly exercises = inject(ExerciseLibraryService);
 
-  /** Emitted when the user picks a saved song. */
+  /** Which library this list shows and edits. */
+  readonly kind = input<LibraryKind>('songs');
+
+  protected readonly library = computed(() =>
+    this.kind() === 'exercises' ? this.exercises : this.songs,
+  );
+  protected readonly text = computed(() => TEXT[this.kind()]);
+
+  /** Emitted when the user picks a saved song (or exercise). */
   readonly songSelect = output<Song>();
 
   private readonly form = viewChild.required<ElementRef<HTMLFormElement>>('form');
@@ -87,7 +111,7 @@ export class SongLibrary {
     if (this.isEditing(song)) {
       this.clear();
     }
-    this.library.remove(song);
+    this.library().remove(song);
   }
 
   protected onSubmit(event: Event): void {
@@ -98,9 +122,9 @@ export class SongLibrary {
     }
     const editing = this.editing();
     if (editing) {
-      this.library.update(editing, song);
+      this.library().update(editing, song);
     } else {
-      this.library.save(song);
+      this.library().save(song);
     }
     this.clear();
   }

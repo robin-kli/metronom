@@ -2,10 +2,15 @@ import { TestBed } from '@angular/core/testing';
 import { App } from './app';
 import { Scheduler, SchedulerOptions } from './audio/scheduler';
 import { BeatEvent } from './core/beat-event';
+import { ValidSettings } from './core/ramp';
 import { SESSION_PLATFORM, SessionPlatform } from './session/session-platform';
 import { SessionService } from './session/session.service';
 import { TAP_CLOCK } from './session/tap-tempo.service';
-import { SONG_STORAGE, SONG_STORAGE_KEY } from './session/song-library.service';
+import {
+  EXERCISE_STORAGE_KEY,
+  SONG_STORAGE,
+  SONG_STORAGE_KEY,
+} from './session/song-library.service';
 
 describe('App', () => {
   let stops: number;
@@ -13,6 +18,7 @@ describe('App', () => {
   let failResume: boolean;
   let onEvent: ((event: BeatEvent) => void) | null;
   let startOptions: (SchedulerOptions | undefined)[];
+  let updates: ValidSettings[];
   let frame: (() => void) | null;
   let songData: Map<string, string>;
 
@@ -22,6 +28,7 @@ describe('App', () => {
     failResume = false;
     onEvent = null;
     startOptions = [];
+    updates = [];
     frame = null;
     songData = new Map();
     const platform: SessionPlatform = {
@@ -38,6 +45,7 @@ describe('App', () => {
           startOptions.push(options);
           onEvent = cb;
         },
+        update: (settings) => updates.push(settings),
         stop: () => stops++,
       }),
       requestAnimationFrame: (cb) => {
@@ -236,9 +244,54 @@ describe('App', () => {
       const idle = el.querySelector('main.idle')!;
       expect(Array.from(idle.children).map((c) => c.tagName.toLowerCase())).toEqual([
         'app-settings-form',
-        'app-song-library',
+        'div',
       ]);
-      expect(el.querySelectorAll('app-song-library .row')).toHaveLength(2);
+      const libraries = idle.querySelectorAll('.libraries > app-song-library');
+      expect(Array.from(libraries).map((l) => l.querySelector('.heading')?.textContent)).toEqual([
+        'Songs',
+        'Exercises',
+      ]);
+      expect(libraries[0].querySelectorAll('.row')).toHaveLength(2);
+      expect(libraries[1].querySelectorAll('.row')).toHaveLength(0);
+    });
+
+    it('picking an exercise sets the Ceiling like a song', async () => {
+      songData.set(
+        EXERCISE_STORAGE_KEY,
+        JSON.stringify([{ artist: 'Stick Control', title: 'p.5', bpm: 100, maxBpm: null }]),
+      );
+      const fixture = TestBed.createComponent(App);
+      const el = fixture.nativeElement as HTMLElement;
+      await fixture.whenStable();
+      const exercises = el.querySelectorAll('app-song-library')[1];
+      expect(exercises.querySelectorAll('.row')).toHaveLength(1);
+      (exercises.querySelector('.pick') as HTMLButtonElement).click();
+      await fixture.whenStable();
+      expect(settingsValues(el)).toEqual(['60', '100', '5', '4']);
+    });
+
+    it('saving an exercise lists it only under Exercises and stores it separately', async () => {
+      const fixture = TestBed.createComponent(App);
+      const el = fixture.nativeElement as HTMLElement;
+      await fixture.whenStable();
+      const exercises = el.querySelectorAll('app-song-library')[1];
+      const type = (name: string, value: string) => {
+        const input = exercises.querySelector(`input[name="${name}"]`) as HTMLInputElement;
+        input.value = value;
+        input.dispatchEvent(new Event('input'));
+      };
+      type('artist', 'Stick Control');
+      type('title', 'p.5');
+      type('bpm', '100');
+      await fixture.whenStable();
+      (exercises.querySelector('form') as HTMLFormElement).requestSubmit();
+      await fixture.whenStable();
+      expect(exercises.querySelectorAll('.row')).toHaveLength(1);
+      expect(el.querySelectorAll('app-song-library')[0].querySelectorAll('.row')).toHaveLength(0);
+      expect(JSON.parse(songData.get(EXERCISE_STORAGE_KEY)!)).toEqual([
+        { artist: 'Stick Control', title: 'p.5', bpm: 100, maxBpm: null },
+      ]);
+      expect(songData.has(SONG_STORAGE_KEY)).toBe(false);
     });
 
     it('selecting a row sets the Ceiling field, and Start ramps towards it', async () => {
@@ -592,7 +645,7 @@ describe('App', () => {
       expect(session.settings().startBpm).toBe(61);
     });
 
-    it('arrows do nothing while playing or with Ctrl, Alt or Meta', async () => {
+    it('arrows do nothing with Ctrl, Alt or Meta, idle or playing', async () => {
       const { session, settle, play } = await setup();
       for (const mod of ['ctrlKey', 'altKey', 'metaKey'] as const) {
         expect(key(window, 'ArrowUp', { [mod]: true }).defaultPrevented).toBe(false);
@@ -600,11 +653,55 @@ describe('App', () => {
       await settle();
       expect(session.settings().startBpm).toBe(60);
       await play();
-      key(window, 'ArrowUp');
-      key(window, 'ArrowDown');
+      for (const mod of ['ctrlKey', 'altKey', 'metaKey'] as const) {
+        expect(key(window, 'ArrowUp', { [mod]: true }).defaultPrevented).toBe(false);
+      }
       await settle();
       expect(session.settings().startBpm).toBe(60);
-      expect(session.settings().ceilingBpm).toBe(120);
+      expect(updates).toEqual([]);
+    });
+
+    it('arrows while playing nudge the running ramp live and the strip shows it', async () => {
+      const { el, session, settle, play } = await setup();
+      await play();
+      const up = key(window, 'ArrowUp');
+      key(window, 'ArrowUp', { repeat: true });
+      key(window, 'ArrowUp', { repeat: true });
+      await settle();
+      expect(up.defaultPrevented).toBe(true);
+      expect(session.status()).toBe('playing');
+      expect(session.settings()).toEqual({ startBpm: 63, ceilingBpm: 123, step: 5, interval: 4 });
+      expect(updates.at(-1)).toEqual({ startBpm: 63, ceilingBpm: 123, step: 5, interval: 4 });
+      expect(updates).toHaveLength(3);
+      expect(starts).toBe(1);
+      expect(stops).toBe(0);
+      expect(el.querySelector('.summary')?.textContent?.trim()).toBe(
+        '63 → 123 BPM · +5 every 4 bars · count-in',
+      );
+      key(window, 'ArrowDown');
+      await settle();
+      expect(session.settings()).toMatchObject({ startBpm: 62, ceilingBpm: 122 });
+    });
+
+    it('arrows while playing with Ramp off nudge the Tempo', async () => {
+      const { session, settle, play } = await setup();
+      session.setRamp(false);
+      session.updateSettings({ startBpm: 90, ceilingBpm: 120, step: 5, interval: 4 });
+      await play();
+      key(window, 'ArrowDown');
+      await settle();
+      expect(session.settings()).toMatchObject({ startBpm: 89, ceilingBpm: 120 });
+      expect(updates).toEqual([{ startBpm: 89, ceilingBpm: 89, step: 5, interval: 4 }]);
+    });
+
+    it('ArrowDown while playing at Start 1 changes nothing', async () => {
+      const { session, settle, play } = await setup();
+      session.updateSettings({ startBpm: 1, ceilingBpm: 40, step: 5, interval: 4 });
+      await play();
+      key(window, 'ArrowDown');
+      await settle();
+      expect(session.settings().startBpm).toBe(1);
+      expect(updates).toEqual([]);
     });
 
     it('ignores Space with Ctrl, Alt or Meta', async () => {

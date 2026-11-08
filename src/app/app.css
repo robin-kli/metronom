@@ -14,6 +14,22 @@
   padding: var(--space-4);
 }
 
+.libraries {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-8);
+  width: min(100%, 1120px);
+}
+
+/* Too narrow for two half-width libraries: stack Songs above Exercises. */
+@media (max-width: 900px) {
+  .libraries {
+    grid-template-columns: minmax(0, 1fr);
+    width: min(100%, 640px);
+  }
+}
+
 .playing {
   display: flex;
   flex-direction: column;

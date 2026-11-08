@@ -40,7 +40,7 @@ const browserTimers: Timers = {
 /**
  * Look-ahead scheduler: every ~25 ms it schedules all beats falling within the next ~100 ms
  * on the audio clock. Beat times accumulate `60 / tempo`; tempo comes only from `rampAt()`
- * per Bar, so it can only change on beat 1. An optional count-in bar at the Start BPM precedes
+ * per Bar, so it only changes on beat 1 unless `update()` swaps the Settings mid-bar. An optional count-in bar at the Start BPM precedes
  * ramp bar 0 and never counts towards the ramp.
  */
 export class Scheduler<C extends AudioClock = BaseAudioContext> {
@@ -75,6 +75,18 @@ export class Scheduler<C extends AudioClock = BaseAudioContext> {
     this.inCountIn = options.countIn ?? false;
     this.running = true;
     this.tick();
+  }
+
+  /**
+   * Swaps the Settings of a running Session (live nudge). Beats already scheduled keep their
+   * tempo; the next scheduled beat uses the new Settings. Bar position and count-in are kept.
+   * Ignored while stopped.
+   */
+  update(settings: ValidSettings): void {
+    if (!this.running) {
+      return;
+    }
+    this.settings = settings;
   }
 
   /** Halts scheduling and silences clicks scheduled but not yet sounded. */

@@ -105,13 +105,15 @@ components:
     typography: '{typography.body}'
   switch:
     # Ramp and Count-in (2026-10-25)
-    trackSize: '40px x 24px'
-    trackOff: '{colors.beat-off}'
-    trackOn: '{colors.surface-raised}'
+    # On/off contrast reworked 2026-11-08
+    trackSize: '48px x 28px'
+    trackOff: transparent
+    trackOn: '{colors.text}'
     thumbOff: '{colors.text-muted}'
-    thumbOn: '{colors.text}'
-    border: '1px solid {colors.border}'
-    borderOn: '1px solid {colors.text}'
+    thumbOn: '{colors.surface}'
+    glyphOn: '✓ in {colors.surface}'
+    border: '2px solid {colors.border}'
+    borderOn: '2px solid {colors.text}'
     labelSize: 16px
     gap: '{spacing.6}'
   button-tap:
@@ -167,6 +169,7 @@ One window, one column, everything centred. Spacing uses a 4px scale.
 
 - **Idle**: the settings form sits in the middle of the window: four fields in a row (two by two in narrow windows) with labels above and a −/+ stepper pair below each, then the tap row, then the switch row (Ramp, Count-in), then the Start button, then the validation hint line. With Ramp off only the Tempo field is shown, one grid column wide and centred; the rows below stay where they are. (2026-10-25)
 - **Tap row** (2026-10-25): the Tap button on the left, the tap readout to its right, the pair centred, `{spacing.4}` apart. It stays on one line down to the 480px minimum (160px button + about 200px readout).
+- **Libraries row** (2026-11-08): under the settings form, Songs and Exercises in two equal columns, `{spacing.8}` apart, at most 1120px wide, centred. Below about 900px they stack in one column (Songs first), at most 640px wide. Each library's add/edit form is a 2-column grid (name fields side by side, BPM and My max side by side) with Save / Cancel on a full-width row below.
 - **Playing**: a slim settings strip runs across the top. Beneath it, centred vertically: BPM number, the row of four beat blocks, the status line. The beat row and BPM scale with the window (`vmin`/`vw`), so the display always uses the available space.
 
 Minimum useful window: about 480 × 360px.
@@ -190,7 +193,7 @@ Soft but not round: `{rounded.sm}` for inputs, `{rounded.md}` for buttons, `{rou
 - **Stop button**: outlined, transparent.
 - **Settings strip**: one line on `{colors.surface-raised}` showing the locked Settings as plain text, with the Stop button at its right end.
 - **Validation hint**: one line of `{typography.body}` in `{colors.danger}` under the Start button.
-- **Switch** (2026-10-25): Ramp and Count-in share one look and sit side by side in one centred row, `{spacing.6}` apart, Ramp first. Track `{colors.beat-off}` with a `{colors.text-muted}` thumb on the left when off; `{colors.surface-raised}` track, `{colors.text}` border and thumb on the right when on. The label sits right of the track. The whole label is the hit target, at least 48px tall. Never amber.
+- **Switch** (2026-10-25, on/off reworked 2026-11-08): Ramp and Count-in share one look and sit side by side in one centred row, `{spacing.6}` apart, Ramp first. Off: hollow 48 × 28px track, 2px `{colors.border}` outline (3.9:1 on surface), `{colors.text-muted}` thumb on the left. On: track filled solid `{colors.text}` (17:1 on surface), `{colors.surface}` thumb on the right and a `{colors.surface}` check mark on the left. The state reads through fill, thumb position and the glyph, never colour alone. The label sits right of the track. The whole label is the hit target, at least 48px tall. Never amber.
 - **Tap button** (2026-10-25): same family as the steppers: `{colors.surface-raised}`, `{colors.border}` outline, 48px tall, at least 160px wide, label "Tap" with a muted "T" key hint after it ("Tap  T"). Every tap, by mouse or the T key, shows the pressed fill `{colors.beat-off}` for about 100ms, switched instantly, no fade. Hover: border turns `{colors.text}`. Never amber: tapping is not beat 1.
 - **Tap readout** (2026-10-25): the measured tempo in `{typography.input}` with a small "BPM" after it, and the tap count under it in `{typography.body}`, both `{colors.text-muted}` until a value exists; the value then turns `{colors.text}`. Tabular numerals, fixed width for three digits so the row never shifts.
 

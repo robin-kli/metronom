@@ -17,6 +17,8 @@ export interface SessionScheduler {
     onBeat: (event: BeatEvent) => void,
     options?: SchedulerOptions,
   ): void;
+  /** Swaps the Settings of the running Session from the next scheduled beat. */
+  update(settings: ValidSettings): void;
   stop(): void;
 }
 

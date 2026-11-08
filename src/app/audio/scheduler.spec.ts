@@ -269,6 +269,58 @@ describe('Scheduler', () => {
     });
   });
 
+  describe('update (live nudge)', () => {
+    it('plays the next scheduled beat with the new settings, keeping the bar position', () => {
+      // 60 → 120, +5 every bar: ~17.4 s in, bar 5 plays at 85.
+      run(settings(60, 120, 5, 1), 17.5);
+      const before = beats.length;
+      const last = beats[before - 1];
+      expect(last).toMatchObject({ barIndex: 5, tempo: 85 });
+      scheduler.update(settings(61, 121, 5, 1));
+      clock.advance(1000);
+      const next = beats[before];
+      expect(next).toMatchObject({ tempo: 86, countIn: false });
+      expect(next.barIndex * 4 + next.beat).toBe(last.barIndex * 4 + last.beat + 1);
+      // The beat already scheduled keeps its time; the gap after the new beat uses the new tempo.
+      expect(next.audioTime - last.audioTime).toBeCloseTo(60 / 85, 9);
+      clock.advance(1000);
+      expect(beats[before + 1].audioTime - next.audioTime).toBeCloseTo(60 / 86, 9);
+    });
+
+    it('does not restart: no count-in replay and no extra beat', () => {
+      scheduler.start(settings(60, 60, 5, 4), (e) => beats.push(e), { countIn: true });
+      clock.advance(5500);
+      expect(beats.at(-1)).toMatchObject({ barIndex: 0, beat: 2, countIn: false });
+      const count = beats.length;
+      scheduler.update(settings(90, 90, 5, 4));
+      expect(beats.length).toBe(count);
+      clock.advance(2000);
+      expect(beats.slice(count).every((b) => !b.countIn && b.barIndex >= 0 && b.tempo === 90)).toBe(
+        true,
+      );
+    });
+
+    it('during the count-in keeps counting in at the new Start BPM', () => {
+      scheduler.start(settings(60, 120, 5, 4), (e) => beats.push(e), { countIn: true });
+      clock.advance(1500);
+      expect(beats.at(-1)).toMatchObject({ beat: 2, countIn: true, tempo: 60 });
+      scheduler.update(settings(61, 121, 5, 4));
+      clock.advance(1000);
+      expect(beats.at(-1)).toMatchObject({ beat: 3, barIndex: -1, countIn: true, tempo: 61 });
+    });
+
+    it('is ignored while stopped', () => {
+      run(settings(60, 60, 5, 4), 2);
+      scheduler.stop();
+      const count = beats.length;
+      scheduler.update(settings(90, 90, 5, 4));
+      clock.advance(2000);
+      expect(beats.length).toBe(count);
+      scheduler.start(settings(70, 70, 5, 4), (e) => beats.push(e));
+      expect(beats.at(-1)).toMatchObject({ tempo: 70 });
+    });
+  });
+
   it('uses a ~25 ms tick', () => {
     expect(TICK_MS).toBe(25);
     expect(LOOKAHEAD_S).toBe(0.1);

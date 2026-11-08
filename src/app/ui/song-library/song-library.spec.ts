@@ -1,7 +1,12 @@
 import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Song } from '../../core/songs';
-import { SONG_STORAGE, SONG_STORAGE_KEY, SongStorage } from '../../session/song-library.service';
+import {
+  EXERCISE_STORAGE_KEY,
+  SONG_STORAGE,
+  SONG_STORAGE_KEY,
+  SongStorage,
+} from '../../session/song-library.service';
 import { SongLibrary } from './song-library';
 
 @Component({
@@ -9,6 +14,14 @@ import { SongLibrary } from './song-library';
   template: `<app-song-library (songSelect)="picked.push($event)" />`,
 })
 class Host {
+  picked: Song[] = [];
+}
+
+@Component({
+  imports: [SongLibrary],
+  template: `<app-song-library kind="exercises" (songSelect)="picked.push($event)" />`,
+})
+class ExerciseHost {
   picked: Song[] = [];
 }
 
@@ -352,6 +365,81 @@ describe('SongLibrary', () => {
       await submit();
       expect(rowTexts()).toEqual(['Metallica – One · 150 BPM · max 110']);
       expect(hint()).toBe('Songs could not be saved');
+    });
+  });
+
+  describe('exercises kind', () => {
+    let exFixture: ComponentFixture<ExerciseHost>;
+    let ex: HTMLElement;
+
+    async function setupExercises() {
+      const storage: SongStorage = {
+        getItem: (k) => data.get(k) ?? null,
+        setItem: (k, v) => {
+          if (failWrites) throw new Error('quota');
+          data.set(k, v);
+        },
+      };
+      await TestBed.configureTestingModule({
+        imports: [ExerciseHost],
+        providers: [{ provide: SONG_STORAGE, useValue: storage }],
+      }).compileComponents();
+      exFixture = TestBed.createComponent(ExerciseHost);
+      ex = exFixture.nativeElement;
+      await exFixture.whenStable();
+    }
+
+    const exField = (name: string) => ex.querySelector(`input[name="${name}"]`) as HTMLInputElement;
+    async function exType(name: string, value: string) {
+      exField(name).value = value;
+      exField(name).dispatchEvent(new Event('input'));
+      await exFixture.whenStable();
+    }
+    async function exSubmit() {
+      (ex.querySelector('form') as HTMLFormElement).requestSubmit();
+      await exFixture.whenStable();
+    }
+
+    it('shows its own heading, labels and empty text', async () => {
+      await setupExercises();
+      expect(text(ex.querySelector('.heading'))).toBe('Exercises');
+      expect(text(ex.querySelector('.empty'))).toBe('No saved exercises yet');
+      expect(Array.from(ex.querySelectorAll('.add .label')).map(text)).toEqual([
+        'Source',
+        'Exercise',
+        'BPM',
+        'My max (BPM)',
+      ]);
+    });
+
+    it('saves to the exercise storage only and emits picks', async () => {
+      data.set(SONG_STORAGE_KEY, JSON.stringify([{ artist: 'A', title: 'B', bpm: 90 }]));
+      await setupExercises();
+      expect(ex.querySelectorAll('.row')).toHaveLength(0);
+      await exType('artist', 'Stick Control');
+      await exType('title', 'p.5');
+      await exType('bpm', '100');
+      await exSubmit();
+      const stickControl = { artist: 'Stick Control', title: 'p.5', bpm: 100, maxBpm: null };
+      expect(JSON.parse(data.get(EXERCISE_STORAGE_KEY)!)).toEqual([stickControl]);
+      expect(JSON.parse(data.get(SONG_STORAGE_KEY)!)).toEqual([
+        { artist: 'A', title: 'B', bpm: 90 },
+      ]);
+      expect(Array.from(ex.querySelectorAll('.row .pick')).map(text)).toEqual([
+        'Stick Control – p.5 · 100 BPM',
+      ]);
+      (ex.querySelector('.pick') as HTMLButtonElement).click();
+      expect(exFixture.componentInstance.picked).toEqual([stickControl]);
+    });
+
+    it('shows "Exercises could not be saved" when a write fails', async () => {
+      failWrites = true;
+      await setupExercises();
+      await exType('artist', 'Stick Control');
+      await exType('title', 'p.5');
+      await exType('bpm', '100');
+      await exSubmit();
+      expect(text(ex.querySelector('.hint'))).toBe('Exercises could not be saved');
     });
   });
 });

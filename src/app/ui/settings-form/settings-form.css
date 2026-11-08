@@ -129,15 +129,20 @@ input:focus-visible,
   cursor: pointer;
 }
 
+/* Off: hollow outline track, muted thumb on the left.
+   On: solid light track, dark thumb on the right, check mark on the left.
+   The state reads through fill, thumb position and the glyph, not colour alone. */
 .switch-track {
   display: inline-flex;
   align-items: center;
-  width: 40px;
-  height: 24px;
-  padding: 2px;
-  background: var(--color-beat-off);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
+  justify-content: space-between;
+  box-sizing: border-box;
+  width: 48px;
+  height: 28px;
+  padding: 0 3px;
+  background: transparent;
+  border: 2px solid var(--color-border);
+  border-radius: 14px;
 }
 
 .switch-thumb {
@@ -148,13 +153,21 @@ input:focus-visible,
 }
 
 .switch[aria-checked='true'] .switch-track {
-  justify-content: flex-end;
-  background: var(--color-surface-raised);
+  background: var(--color-text);
   border-color: var(--color-text);
 }
 
+.switch[aria-checked='true'] .switch-track::before {
+  content: '\2713' / '';
+  padding-left: 3px;
+  color: var(--color-surface);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .switch[aria-checked='true'] .switch-thumb {
-  background: var(--color-text);
+  background: var(--color-surface);
 }
 
 .start {

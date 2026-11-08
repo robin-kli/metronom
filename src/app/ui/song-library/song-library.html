@@ -1,10 +1,10 @@
-<h2 class="heading">Songs</h2>
+<h2 class="heading">{{ text().heading }}</h2>
 
-@if (library.songs().length === 0) {
-  <p class="empty">No saved songs yet</p>
+@if (library().songs().length === 0) {
+  <p class="empty">{{ text().empty }}</p>
 } @else {
   <ul class="list">
-    @for (song of library.songs(); track key(song)) {
+    @for (song of library().songs(); track key(song)) {
       <li class="row" [class.editing]="isEditing(song)">
         <button type="button" class="pick" (click)="songSelect.emit(song)">
           <span class="name">{{ song.artist }} – {{ song.title }}</span
@@ -40,11 +40,11 @@
 
 <form #form class="add" (submit)="onSubmit($event)">
   <label class="field">
-    <span class="label">Artist</span>
+    <span class="label">{{ text().source }}</span>
     <input type="text" name="artist" autocomplete="off" (input)="onText('artist', $event)" />
   </label>
   <label class="field">
-    <span class="label">Song</span>
+    <span class="label">{{ text().name }}</span>
     <input type="text" name="title" autocomplete="off" (input)="onText('title', $event)" />
   </label>
   <label class="field">
@@ -79,4 +79,4 @@
   </div>
 </form>
 
-<p class="hint" aria-live="polite">{{ library.saveError() ?? '' }}</p>
+<p class="hint" aria-live="polite">{{ library().saveError() ?? '' }}</p>
