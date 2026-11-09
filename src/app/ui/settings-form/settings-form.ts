@@ -1,6 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, input, model, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Settings, validate } from '../../core/settings';
+import {
+  DEFAULT_AUDIBLE_PERCENT,
+  isAudiblePercent,
+  MSG_AUDIBLE_PERCENT,
+  Settings,
+  validate,
+  ValidationResult,
+} from '../../core/settings';
 import { TapPad } from '../tap-pad/tap-pad';
 
 interface Field {
@@ -22,6 +29,10 @@ export class SettingsForm {
   readonly countIn = model.required<boolean>();
   /** Ramp on (four fields) or off (constant mode: Tempo BPM only), two-way bound to the parent. */
   readonly ramp = model(true);
+  /** Random click dropout on/off, two-way bound to the parent. */
+  readonly random = model(false);
+  /** Audible % (0..100) with Random on, `null` while empty/unparseable; two-way bound to the parent. */
+  readonly randomPercent = model<number | null>(DEFAULT_AUDIBLE_PERCENT);
   /** Emitted when the user presses Start with valid Settings. */
   readonly start = output<void>();
   /** A message from outside the form (e.g. audio failure), shown when Settings are valid. */
@@ -38,7 +49,14 @@ export class SettingsForm {
   /** With Ramp off only Start BPM is shown, as "Tempo BPM"; the hidden values are kept. */
   protected readonly fields = computed(() => (this.ramp() ? this.rampFields : this.constantFields));
 
-  protected readonly validation = computed(() => validate(this.settings(), this.ramp()));
+  /** Settings first; then, with Random on, the Audible % (hidden and ignored with Random off). */
+  protected readonly validation = computed((): ValidationResult => {
+    const result = validate(this.settings(), this.ramp());
+    if (result.ok && this.random() && !isAudiblePercent(this.randomPercent())) {
+      return { ok: false, message: MSG_AUDIBLE_PERCENT };
+    }
+    return result;
+  });
   protected readonly hint = computed(() => {
     const result = this.validation();
     return result.ok ? (this.extraHint() ?? '') : result.message;
@@ -67,6 +85,30 @@ export class SettingsForm {
 
   protected toggleRamp(): void {
     this.ramp.update((on) => !on);
+  }
+
+  protected updatePercent(value: number | string | null): void {
+    this.randomPercent.set(typeof value === 'number' && !Number.isNaN(value) ? value : null);
+  }
+
+  /** Audible % stepper: ±5 from the rounded value, clamped to 0..100. An empty field steps up from 0. */
+  protected nudgePercent(delta: number): void {
+    const value = Math.round(this.randomPercent() ?? 0);
+    this.randomPercent.set(Math.min(100, Math.max(0, value + delta)));
+  }
+
+  protected canDecreasePercent(): boolean {
+    const value = this.randomPercent();
+    return value !== null && value > 0;
+  }
+
+  protected canIncreasePercent(): boolean {
+    const value = this.randomPercent();
+    return value === null || value < 100;
+  }
+
+  protected toggleRandom(): void {
+    this.random.update((on) => !on);
   }
 
   protected toggleCountIn(): void {

@@ -64,7 +64,60 @@
     <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
     <span class="switch-label">Count-in</span>
   </button>
+  <button
+    type="button"
+    class="switch random"
+    role="switch"
+    [attr.aria-checked]="random()"
+    (click)="toggleRandom()"
+  >
+    <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+    <span class="switch-label">Random</span>
+  </button>
 </div>
+
+@if (random()) {
+  <div class="random-percent">
+    <label class="field-input">
+      <span class="label">Audible %</span>
+      <input
+        type="number"
+        inputmode="numeric"
+        min="0"
+        max="100"
+        step="1"
+        name="randomPercent"
+        aria-describedby="settings-hint"
+        [ngModel]="randomPercent()"
+        (ngModelChange)="updatePercent($event)"
+      />
+    </label>
+    <div class="stepper">
+      <button
+        type="button"
+        class="step-down"
+        tabindex="-1"
+        aria-label="Decrease Audible %"
+        [disabled]="!canDecreasePercent()"
+        (mousedown)="$event.preventDefault()"
+        (click)="nudgePercent(-5)"
+      >
+        −
+      </button>
+      <button
+        type="button"
+        class="step-up"
+        tabindex="-1"
+        aria-label="Increase Audible %"
+        [disabled]="!canIncreasePercent()"
+        (mousedown)="$event.preventDefault()"
+        (click)="nudgePercent(5)"
+      >
+        +
+      </button>
+    </div>
+  </div>
+}
 
 <button type="button" class="start" [disabled]="!validation().ok" (click)="onStart()">Start</button>
 

@@ -9,6 +9,8 @@ import { SettingsStrip } from './settings-strip';
     [settings]="settings()"
     [countIn]="countIn()"
     [ramp]="ramp()"
+    [random]="random()"
+    [randomPercent]="randomPercent()"
     (stop)="stops = stops + 1"
   />`,
 })
@@ -16,6 +18,8 @@ class Host {
   readonly settings = signal<Settings>({ startBpm: 60, ceilingBpm: 120, step: 5, interval: 4 });
   readonly countIn = signal(false);
   readonly ramp = signal(true);
+  readonly random = signal(false);
+  readonly randomPercent = signal<number | null>(50);
   stops = 0;
 }
 
@@ -65,5 +69,19 @@ describe('SettingsStrip', () => {
     fixture.componentInstance.countIn.set(true);
     await fixture.whenStable();
     expect(summary()).toBe('90 BPM · constant · count-in');
+  });
+
+  it('appends " · random N%" after count-in when Random is on', async () => {
+    const fixture = TestBed.createComponent(Host);
+    const summary = () =>
+      (fixture.nativeElement as HTMLElement).querySelector('.summary')?.textContent?.trim();
+    fixture.componentInstance.random.set(true);
+    fixture.componentInstance.randomPercent.set(30);
+    await fixture.whenStable();
+    expect(summary()).toBe('60 → 120 BPM · +5 every 4 bars · random 30%');
+    fixture.componentInstance.countIn.set(true);
+    fixture.componentInstance.ramp.set(false);
+    await fixture.whenStable();
+    expect(summary()).toBe('60 BPM · constant · count-in · random 30%');
   });
 });

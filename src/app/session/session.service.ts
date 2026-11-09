@@ -4,7 +4,9 @@ import { ValidSettings } from '../core/ramp';
 import {
   applyRampOn,
   constantSettings,
+  DEFAULT_AUDIBLE_PERCENT,
   DEFAULT_SETTINGS,
+  isAudiblePercent,
   Settings,
   shiftRange,
   shiftTempo,
@@ -17,8 +19,9 @@ export type SessionStatus = 'idle' | 'playing';
 export const MSG_NO_AUDIO = 'No audio output available';
 
 /**
- * Owns Settings, the Ramp and count-in switches and the running Session.
- * Only `updateSettings`, `nudge`, `setRamp`, `setCountIn`, `start` and `stop` mutate.
+ * Owns Settings, the Ramp, count-in and Random switches, the Audible % and the running Session.
+ * Only `updateSettings`, `nudge`, `setRamp`, `setCountIn`, `setRandom`, `setRandomPercent`,
+ * `start` and `stop` mutate.
  */
 @Injectable({ providedIn: 'root' })
 export class SessionService {
@@ -30,6 +33,8 @@ export class SessionService {
   private readonly _audioError = signal<string | null>(null);
   private readonly _countIn = signal(true);
   private readonly _ramp = signal(true);
+  private readonly _random = signal(false);
+  private readonly _randomPercent = signal<number | null>(DEFAULT_AUDIBLE_PERCENT);
 
   readonly settings = this._settings.asReadonly();
   readonly status = this._status.asReadonly();
@@ -39,6 +44,10 @@ export class SessionService {
   readonly countIn = this._countIn.asReadonly();
   /** Whether the Session ramps (on) or plays steadily at Start BPM (off). On at launch, not persisted. */
   readonly ramp = this._ramp.asReadonly();
+  /** Random click dropout on/off. Off at launch, not persisted. */
+  readonly random = this._random.asReadonly();
+  /** Audible % with Random on; `null` while the field is empty or unparseable. 50 at launch, not persisted. */
+  readonly randomPercent = this._randomPercent.asReadonly();
 
   private ctx: SessionAudioContext | null = null;
   private scheduler: SessionScheduler | null = null;
@@ -101,16 +110,41 @@ export class SessionService {
     this._countIn.set(on);
   }
 
+  /** Switches Random click dropout on or off. Ignored while playing. The Audible % is kept. */
+  setRandom(on: boolean): void {
+    if (this._status() === 'playing') {
+      return;
+    }
+    this._random.set(on);
+  }
+
+  /** Sets the Audible % (may be invalid while being typed; Start refuses then). Ignored while playing. */
+  setRandomPercent(percent: number | null): void {
+    if (this._status() === 'playing') {
+      return;
+    }
+    this._randomPercent.set(percent);
+  }
+
+  /** The scheduler's audible chance (0..1), or null when Random is on with an invalid Audible %. */
+  private audibleChance(): number | null {
+    if (!this._random()) {
+      return 1;
+    }
+    const percent = this._randomPercent();
+    return isAudiblePercent(percent) ? percent / 100 : null;
+  }
+
   /**
    * Starts a Session with the current Settings: an optional one-bar count-in at the Start BPM
    * (if `countIn` is on), then ramp bar 0. With Ramp off every bar plays at Start BPM. Resolves to true once playing;
-   * false if Settings are invalid, it is already playing, or audio is unavailable.
+   * false if Settings (or the Audible %, with Random on) are invalid, it is already playing, or audio is unavailable.
    */
   async start(): Promise<boolean> {
     if (this._status() === 'playing') {
       return false;
     }
-    if (!validate(this._settings(), this._ramp()).ok) {
+    if (!validate(this._settings(), this._ramp()).ok || this.audibleChance() === null) {
       return false;
     }
     const generation = ++this.generation;
@@ -130,7 +164,8 @@ export class SessionService {
     // Read again: a nudge may have changed Settings while resume() was pending.
     const settings = this._settings();
     const ramp = this._ramp();
-    if (!validate(settings, ramp).ok) {
+    const audibleChance = this.audibleChance();
+    if (!validate(settings, ramp).ok || audibleChance === null) {
       return false;
     }
     this._audioError.set(null);
@@ -141,6 +176,7 @@ export class SessionService {
     const played = ramp ? { ...(settings as ValidSettings) } : constantSettings(settings);
     this.scheduler.start(played, (event) => this.enqueue(event), {
       countIn: this._countIn(),
+      audibleChance,
     });
     this.frame = this.platform.requestAnimationFrame(() => this.publish());
     return true;

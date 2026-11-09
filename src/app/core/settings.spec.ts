@@ -3,6 +3,7 @@ import {
   applyRampOn,
   constantSettings,
   DEFAULT_SETTINGS,
+  isAudiblePercent,
   MSG_TEMPO_WHOLE,
   shiftTempo,
   MSG_CEILING_BELOW_START,
@@ -138,5 +139,20 @@ describe('constantSettings', () => {
     const constant = constantSettings(s(90, null, null, 0));
     expect(constant).toEqual({ startBpm: 90, ceilingBpm: 90, step: 1, interval: 1 });
     expect(rampAt(constant, 7).tempo).toBe(90);
+  });
+});
+
+describe('isAudiblePercent', () => {
+  it.each<[number | null, boolean]>([
+    [0, true],
+    [50, true],
+    [100, true],
+    [null, false],
+    [-1, false],
+    [101, false],
+    [2.5, false],
+    [Number.NaN, false],
+  ])('%s → %s', (value, ok) => {
+    expect(isAudiblePercent(value)).toBe(ok);
   });
 });

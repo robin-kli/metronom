@@ -102,14 +102,14 @@ describe('SessionService', () => {
   it('has the count-in on by default and passes it to the scheduler', async () => {
     expect(service.countIn()).toBe(true);
     await service.start();
-    expect(scheduler.options).toEqual([{ countIn: true }]);
+    expect(scheduler.options).toEqual([{ countIn: true, audibleChance: 1 }]);
   });
 
   it('passes count-in off to the scheduler once switched off', async () => {
     service.setCountIn(false);
     expect(service.countIn()).toBe(false);
     await service.start();
-    expect(scheduler.options).toEqual([{ countIn: false }]);
+    expect(scheduler.options).toEqual([{ countIn: false, audibleChance: 1 }]);
   });
 
   it('ignores setCountIn while playing', async () => {
@@ -277,6 +277,52 @@ describe('SessionService', () => {
     runFrame();
     expect(service.current()?.audioTime).toBe(999 * 0.5);
   });
+  describe('random switch', () => {
+    it('is off at 50% by default and passes chance 1', async () => {
+      expect(service.random()).toBe(false);
+      expect(service.randomPercent()).toBe(50);
+      await service.start();
+      expect(scheduler.options[0]?.audibleChance).toBe(1);
+    });
+
+    it('on, passes Audible % as a 0..1 chance', async () => {
+      service.setRandom(true);
+      service.setRandomPercent(25);
+      expect(await service.start()).toBe(true);
+      expect(scheduler.options).toEqual([{ countIn: true, audibleChance: 0.25 }]);
+    });
+
+    it('on at 0% starts with chance 0', async () => {
+      service.setRandom(true);
+      service.setRandomPercent(0);
+      expect(await service.start()).toBe(true);
+      expect(scheduler.options).toEqual([{ countIn: true, audibleChance: 0 }]);
+    });
+
+    it.each([null, 101, 2.5, -5])('on, refuses to start with Audible %% %s', async (percent) => {
+      service.setRandom(true);
+      service.setRandomPercent(percent);
+      expect(await service.start()).toBe(false);
+      expect(service.status()).toBe('idle');
+      expect(scheduler.starts).toEqual([]);
+    });
+
+    it('off, an invalid hidden Audible % does not block Start and is kept', async () => {
+      service.setRandomPercent(null);
+      expect(await service.start()).toBe(true);
+      expect(scheduler.options[0]?.audibleChance).toBe(1);
+      expect(service.randomPercent()).toBeNull();
+    });
+
+    it('ignores setRandom and setRandomPercent while playing', async () => {
+      await service.start();
+      service.setRandom(true);
+      service.setRandomPercent(10);
+      expect(service.random()).toBe(false);
+      expect(service.randomPercent()).toBe(50);
+    });
+  });
+
   describe('ramp switch', () => {
     it('is on by default', () => {
       expect(service.ramp()).toBe(true);

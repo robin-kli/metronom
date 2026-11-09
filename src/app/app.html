@@ -4,6 +4,8 @@
       [settings]="session.settings()"
       [countIn]="session.countIn()"
       [ramp]="session.ramp()"
+      [random]="session.random()"
+      [randomPercent]="session.randomPercent()"
       (stop)="onStop()"
     />
     <app-beat-display
@@ -23,6 +25,10 @@
       (countInChange)="session.setCountIn($event)"
       [ramp]="session.ramp()"
       (rampChange)="session.setRamp($event)"
+      [random]="session.random()"
+      (randomChange)="session.setRandom($event)"
+      [randomPercent]="session.randomPercent()"
+      (randomPercentChange)="session.setRandomPercent($event)"
       [extraHint]="session.audioError()"
       (start)="onStart()"
     />

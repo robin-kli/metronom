@@ -18,11 +18,20 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
 export const MSG_WHOLE_NUMBER = 'All fields need a whole number above 0';
 export const MSG_CEILING_BELOW_START = 'Ceiling must be at least the start BPM';
 export const MSG_TEMPO_WHOLE = 'Tempo needs a whole number above 0';
+export const MSG_AUDIBLE_PERCENT = 'Audible % needs a whole number from 0 to 100';
+
+/** Random click dropout: the chance a click sounds, in whole percent. */
+export const DEFAULT_AUDIBLE_PERCENT = 50;
 
 export type ValidationResult = { ok: true } | { ok: false; message: string };
 
 export function isPositiveWhole(value: number | null): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+/** Audible % (Random switch): a whole number from 0 to 100. */
+export function isAudiblePercent(value: number | null): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 100;
 }
 
 /**

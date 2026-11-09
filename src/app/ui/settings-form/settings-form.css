@@ -196,3 +196,43 @@ input:focus-visible,
   text-align: center;
   color: var(--color-danger);
 }
+
+/* Random row (2026-11-09): the "Audible %" field shows only while Random is on.
+   It takes its own centred line directly under the switch row, laid out horizontally:
+   label, a compact 3-digit input, then the −/+ pair. Everything is 48px tall,
+   matching the switches and steppers. */
+.random-percent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  gap: var(--space-3);
+}
+
+.random-percent .field-input {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.random-percent input {
+  width: calc(5ch + 2 * var(--space-3));
+  height: 48px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.random-percent .stepper {
+  grid-template-columns: 48px 48px;
+}
+
+@media (max-width: 480px) {
+  .random-percent {
+    gap: var(--space-2);
+  }
+
+  .random-percent .field-input {
+    gap: var(--space-2);
+  }
+}

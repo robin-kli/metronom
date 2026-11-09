@@ -30,6 +30,11 @@ export type ClickFn<C extends AudioClock> = (
 export interface SchedulerOptions {
   /** Play one bar of four count-in beats at the Start BPM before ramp bar 0. */
   countIn?: boolean;
+  /**
+   * Chance (0..1) that a ramp-bar click is audible; each click is decided independently.
+   * Count-in clicks always sound. Only the sound is dropped: `onBeat` fires for every beat. Default 1.
+   */
+  audibleChance?: number;
 }
 
 const browserTimers: Timers = {
@@ -52,12 +57,14 @@ export class Scheduler<C extends AudioClock = BaseAudioContext> {
   private barIndex = 0;
   private beat = 1;
   private inCountIn = false;
+  private audibleChance = 1;
   private pending: { time: number; click: ClickHandle }[] = [];
 
   constructor(
     private readonly ctx: C,
     private readonly timers: Timers = browserTimers,
     private readonly click: ClickFn<C> = scheduleClick as unknown as ClickFn<C>,
+    private readonly random: () => number = Math.random,
   ) {}
 
   /** Starts at bar 0, beat 1 (or the count-in, if enabled), shortly after the current audio time. */
@@ -73,6 +80,7 @@ export class Scheduler<C extends AudioClock = BaseAudioContext> {
     this.barIndex = 0;
     this.beat = 1;
     this.inCountIn = options.countIn ?? false;
+    this.audibleChance = options.audibleChance ?? 1;
     this.running = true;
     this.tick();
   }
@@ -121,15 +129,25 @@ export class Scheduler<C extends AudioClock = BaseAudioContext> {
     while (this.nextTime < horizon) {
       const event = this.currentBeat(this.settings);
       const tempo = event.tempo;
-      this.pending.push({
-        time: this.nextTime,
-        click: this.click(this.ctx, this.nextTime, this.beat === 1, this.inCountIn),
-      });
+      if (this.isAudible()) {
+        this.pending.push({
+          time: this.nextTime,
+          click: this.click(this.ctx, this.nextTime, this.beat === 1, this.inCountIn),
+        });
+      }
       this.onBeat(event);
       this.nextTime += 60 / tempo;
       this.advanceBeat();
     }
     this.timer = this.timers.setTimeout(() => this.tick(), TICK_MS);
+  }
+
+  /** Random click dropout: count-in clicks always sound; otherwise a fresh draw against the chance. */
+  private isAudible(): boolean {
+    if (this.inCountIn || this.audibleChance >= 1) {
+      return true;
+    }
+    return this.random() < this.audibleChance;
   }
 
   /** The BeatEvent for the beat at `nextTime`. */

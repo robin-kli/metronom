@@ -2,7 +2,12 @@ import { Component, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NgModel } from '@angular/forms';
 import { By } from '@angular/platform-browser';
-import { DEFAULT_SETTINGS, MSG_TEMPO_WHOLE, Settings } from '../../core/settings';
+import {
+  DEFAULT_SETTINGS,
+  MSG_AUDIBLE_PERCENT,
+  MSG_TEMPO_WHOLE,
+  Settings,
+} from '../../core/settings';
 import { SettingsForm } from './settings-form';
 
 @Component({
@@ -11,6 +16,8 @@ import { SettingsForm } from './settings-form';
     [(settings)]="settings"
     [(countIn)]="countIn"
     [(ramp)]="ramp"
+    [(random)]="random"
+    [(randomPercent)]="randomPercent"
     (start)="starts = starts + 1"
   />`,
 })
@@ -18,6 +25,8 @@ class Host {
   readonly settings = signal<Settings>({ ...DEFAULT_SETTINGS });
   readonly countIn = signal(true);
   readonly ramp = signal(true);
+  readonly random = signal(false);
+  readonly randomPercent = signal<number | null>(50);
   starts = 0;
 }
 
@@ -60,7 +69,7 @@ describe('SettingsForm', () => {
     const switches = Array.from(el.querySelectorAll('.switches > button')).map((b) =>
       b.textContent?.trim(),
     );
-    expect(switches).toEqual(['Ramp', 'Count-in']);
+    expect(switches).toEqual(['Ramp', 'Count-in', 'Random']);
   });
 
   it('orders fields, tap row, switches, Start, hint', () => {
@@ -261,6 +270,115 @@ describe('SettingsForm', () => {
       await fixture.whenStable();
       expect(labels()).toEqual(['Start BPM', 'Ceiling BPM', 'Step (BPM)', 'Every (bars)']);
       expect(inputs().map((i) => i.value)).toEqual(['60', '120', '5', '4']);
+    });
+  });
+
+  describe('random switch', () => {
+    const randomSwitch = () => el.querySelector('button.random') as HTMLButtonElement;
+    const percent = () => el.querySelector('.random-percent input') as HTMLInputElement | null;
+    const down = () =>
+      el.querySelector('button[aria-label="Decrease Audible %"]') as HTMLButtonElement;
+    const up = () =>
+      el.querySelector('button[aria-label="Increase Audible %"]') as HTMLButtonElement;
+
+    async function randomOn() {
+      randomSwitch().click();
+      await fixture.whenStable();
+    }
+
+    async function typePercent(value: string) {
+      percent()!.value = value;
+      percent()!.dispatchEvent(new Event('input'));
+      await fixture.whenStable();
+    }
+
+    it('is a switch, off by default, right of Count-in, with no % field', () => {
+      expect(randomSwitch().getAttribute('role')).toBe('switch');
+      expect(randomSwitch().getAttribute('aria-checked')).toBe('false');
+      expect(randomSwitch().previousElementSibling?.classList).toContain('count-in');
+      expect(percent()).toBeNull();
+    });
+
+    it('on: shows the Audible % field under the switches, writes back, does not start', async () => {
+      await randomOn();
+      expect(fixture.componentInstance.random()).toBe(true);
+      expect(fixture.componentInstance.starts).toBe(0);
+      expect(randomSwitch().getAttribute('aria-checked')).toBe('true');
+      expect(percent()!.value).toBe('50');
+      expect(percent()!.closest('label')?.textContent).toContain('Audible %');
+      expect(percent()!.getAttribute('aria-describedby')).toBe('settings-hint');
+      expect(el.querySelector('.switches')?.nextElementSibling?.classList).toContain(
+        'random-percent',
+      );
+      await typePercent('30');
+      expect(fixture.componentInstance.randomPercent()).toBe(30);
+    });
+
+    it.each(['', '101', '2.5', '-1'])(
+      'on: "%s" disables Start with the Audible %% hint',
+      async (value) => {
+        await randomOn();
+        await typePercent(value);
+        expect(button().disabled).toBe(true);
+        expect(hint()).toBe(MSG_AUDIBLE_PERCENT);
+        button().click();
+        expect(fixture.componentInstance.starts).toBe(0);
+      },
+    );
+
+    it('a BPM problem is shown before the Audible % problem', async () => {
+      await randomOn();
+      await typePercent('');
+      await type(2, '');
+      expect(hint()).toBe('All fields need a whole number above 0');
+    });
+
+    it('off: hides the field, keeps its value and no longer blocks Start', async () => {
+      await randomOn();
+      await typePercent('');
+      randomSwitch().click();
+      await fixture.whenStable();
+      expect(percent()).toBeNull();
+      expect(button().disabled).toBe(false);
+      expect(hint()).toBe('');
+      fixture.componentInstance.randomPercent.set(70);
+      await randomOn();
+      expect(percent()!.value).toBe('70');
+    });
+
+    it('steppers move by 5, clamp to 0..100 and stay out of the Tab order', async () => {
+      await randomOn();
+      expect(down().tabIndex).toBe(-1);
+      expect(up().tabIndex).toBe(-1);
+      up().click();
+      await fixture.whenStable();
+      expect(fixture.componentInstance.randomPercent()).toBe(55);
+      fixture.componentInstance.randomPercent.set(98);
+      await fixture.whenStable();
+      up().click();
+      await fixture.whenStable();
+      expect(fixture.componentInstance.randomPercent()).toBe(100);
+      expect(up().disabled).toBe(true);
+      fixture.componentInstance.randomPercent.set(3);
+      await fixture.whenStable();
+      down().click();
+      await fixture.whenStable();
+      expect(fixture.componentInstance.randomPercent()).toBe(0);
+      expect(down().disabled).toBe(true);
+      await typePercent('');
+      expect(down().disabled).toBe(true);
+      up().click();
+      await fixture.whenStable();
+      expect(fixture.componentInstance.randomPercent()).toBe(5);
+    });
+
+    it('steppers round a fractional value first, so it becomes valid', async () => {
+      await randomOn();
+      await typePercent('2.5');
+      up().click();
+      await fixture.whenStable();
+      expect(fixture.componentInstance.randomPercent()).toBe(8);
+      expect(button().disabled).toBe(false);
     });
   });
 

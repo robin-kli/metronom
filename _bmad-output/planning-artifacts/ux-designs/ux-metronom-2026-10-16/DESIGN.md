@@ -104,7 +104,7 @@ components:
     foreground: '{colors.text-muted}'
     typography: '{typography.body}'
   switch:
-    # Ramp and Count-in (2026-10-25)
+    # Ramp, Count-in and Random (2026-10-25, Random 2026-11-09)
     # On/off contrast reworked 2026-11-08
     trackSize: '48px x 28px'
     trackOff: transparent
@@ -133,6 +133,13 @@ components:
     count: '{typography.body}'
     countColor: '{colors.text-muted}'
     gap: '{spacing.4}'
+  random-percent:
+    # Audible % field under the switch row (2026-11-09)
+    layout: 'label · input · stepper pair, one row, centred'
+    inputWidth: 'about 5ch (three digits), centred text, tabular numerals'
+    height: 48px
+    stepper: '2 x 48px buttons, same look as settings stepper'
+    gap: '{spacing.3}'
 ---
 
 ## Brand & Style
@@ -167,7 +174,7 @@ System font stack (`system-ui`), so nothing has to be bundled or downloaded. Eve
 
 One window, one column, everything centred. Spacing uses a 4px scale.
 
-- **Idle**: the settings form sits in the middle of the window: four fields in a row (two by two in narrow windows) with labels above and a −/+ stepper pair below each, then the tap row, then the switch row (Ramp, Count-in), then the Start button, then the validation hint line. With Ramp off only the Tempo field is shown, one grid column wide and centred; the rows below stay where they are. (2026-10-25)
+- **Idle**: the settings form sits in the middle of the window: four fields in a row (two by two in narrow windows) with labels above and a −/+ stepper pair below each, then the tap row, then the switch row (Ramp, Count-in, Random), then — only while Random is on — the Audible % line (2026-11-09), then the Start button, then the validation hint line. With Ramp off only the Tempo field is shown, one grid column wide and centred; the rows below stay where they are. (2026-10-25)
 - **Tap row** (2026-10-25): the Tap button on the left, the tap readout to its right, the pair centred, `{spacing.4}` apart. It stays on one line down to the 480px minimum (160px button + about 200px readout).
 - **Libraries row** (2026-11-08): under the settings form, Songs and Exercises in two equal columns, `{spacing.8}` apart, at most 1120px wide, centred. Below about 900px they stack in one column (Songs first), at most 640px wide. Each library's add/edit form is a 2-column grid (name fields side by side, BPM and My max side by side) with Save / Cancel on a full-width row below.
 - **Playing**: a slim settings strip runs across the top. Beneath it, centred vertically: BPM number, the row of four beat blocks, the status line. The beat row and BPM scale with the window (`vmin`/`vw`), so the display always uses the available space.
@@ -193,7 +200,8 @@ Soft but not round: `{rounded.sm}` for inputs, `{rounded.md}` for buttons, `{rou
 - **Stop button**: outlined, transparent.
 - **Settings strip**: one line on `{colors.surface-raised}` showing the locked Settings as plain text, with the Stop button at its right end.
 - **Validation hint**: one line of `{typography.body}` in `{colors.danger}` under the Start button.
-- **Switch** (2026-10-25, on/off reworked 2026-11-08): Ramp and Count-in share one look and sit side by side in one centred row, `{spacing.6}` apart, Ramp first. Off: hollow 48 × 28px track, 2px `{colors.border}` outline (3.9:1 on surface), `{colors.text-muted}` thumb on the left. On: track filled solid `{colors.text}` (17:1 on surface), `{colors.surface}` thumb on the right and a `{colors.surface}` check mark on the left. The state reads through fill, thumb position and the glyph, never colour alone. The label sits right of the track. The whole label is the hit target, at least 48px tall. Never amber.
+- **Switch** (2026-10-25, on/off reworked 2026-11-08, Random added 2026-11-09): Ramp, Count-in and Random share one look and sit side by side in one centred row, `{spacing.6}` apart, in that order. Off: hollow 48 × 28px track, 2px `{colors.border}` outline (3.9:1 on surface), `{colors.text-muted}` thumb on the left. On: track filled solid `{colors.text}` (17:1 on surface), `{colors.surface}` thumb on the right and a `{colors.surface}` check mark on the left. The state reads through fill, thumb position and the glyph, never colour alone. The label sits right of the track. The whole label is the hit target, at least 48px tall. Never amber.
+- **Audible % field** (2026-11-09): appears on its own centred line directly under the switch row while Random is on, and disappears (no placeholder space) when it is off, so the Start button moves down by one 48px row plus `{spacing.6}`. One horizontal row, `{spacing.3}` apart: the muted "Audible %" label, a compact settings input (about 5ch wide, three digits, centred, tabular numerals, 48px tall), then a −/+ stepper pair of two 48px-square buttons in the settings-stepper look. Never amber. Below 480px the gaps tighten to `{spacing.2}`. `[ASSUMPTION: own line rather than inline with the switch, so the switch row never reflows when Random is toggled]`
 - **Tap button** (2026-10-25): same family as the steppers: `{colors.surface-raised}`, `{colors.border}` outline, 48px tall, at least 160px wide, label "Tap" with a muted "T" key hint after it ("Tap  T"). Every tap, by mouse or the T key, shows the pressed fill `{colors.beat-off}` for about 100ms, switched instantly, no fade. Hover: border turns `{colors.text}`. Never amber: tapping is not beat 1.
 - **Tap readout** (2026-10-25): the measured tempo in `{typography.input}` with a small "BPM" after it, and the tap count under it in `{typography.body}`, both `{colors.text-muted}` until a value exists; the value then turns `{colors.text}`. Tabular numerals, fixed width for three digits so the row never shifts.
 

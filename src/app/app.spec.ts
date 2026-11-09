@@ -133,7 +133,7 @@ describe('App', () => {
     (el.querySelector('button.start') as HTMLButtonElement).click();
     await new Promise((r) => setTimeout(r));
     await fixture.whenStable();
-    expect(startOptions).toEqual([{ countIn: true }]);
+    expect(startOptions).toEqual([{ countIn: true, audibleChance: 1 }]);
     expect(el.querySelector('.summary')?.textContent?.trim()).toBe(
       '60 → 120 BPM · +5 every 4 bars · count-in',
     );
@@ -501,6 +501,33 @@ describe('App', () => {
       expect(starts).toBe(0);
       expect(el.querySelector('.hint')?.textContent?.trim()).toBe(
         'All fields need a whole number above 0',
+      );
+    });
+
+    it('Random on: an invalid Audible % blocks Space; a valid one plays with the strip suffix', async () => {
+      const { el, session, settle } = await setup();
+      (el.querySelector('button.random') as HTMLButtonElement).click();
+      await settle();
+      const percent = el.querySelector('.random-percent input') as HTMLInputElement;
+      percent.value = '';
+      percent.dispatchEvent(new Event('input'));
+      await settle();
+      key(percent, ' ');
+      await settle();
+      expect(session.status()).toBe('idle');
+      expect(starts).toBe(0);
+      expect(el.querySelector('.hint')?.textContent?.trim()).toBe(
+        'Audible % needs a whole number from 0 to 100',
+      );
+      percent.value = '40';
+      percent.dispatchEvent(new Event('input'));
+      await settle();
+      key(percent, ' ');
+      await settle();
+      expect(session.status()).toBe('playing');
+      expect(startOptions).toEqual([{ countIn: true, audibleChance: 0.4 }]);
+      expect(el.querySelector('.summary')?.textContent?.trim()).toBe(
+        '60 → 120 BPM · +5 every 4 bars · count-in · random 40%',
       );
     });
 

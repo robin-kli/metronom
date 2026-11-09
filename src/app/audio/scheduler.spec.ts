@@ -321,6 +321,79 @@ describe('Scheduler', () => {
     });
   });
 
+  describe('random click dropout', () => {
+    /** A scheduler whose rng returns `draws` in turn (cycling). */
+    const withRandom = (draws: number[]) => {
+      let i = 0;
+      return new Scheduler(
+        clock,
+        clock,
+        (_ctx, time, accent, countIn) => {
+          const click = { time, accent, countIn, cancelled: false };
+          clicks.push(click);
+          return { cancel: () => (click.cancelled = true) };
+        },
+        () => draws[i++ % draws.length],
+      );
+    };
+
+    it('at 25%: a draw of 0.2 clicks, 0.3 stays silent, but every beat still fires', () => {
+      const s = withRandom([0.2, 0.3]);
+      s.start(settings(60, 60, 5, 4), (e) => beats.push(e), { audibleChance: 0.25 });
+      clock.advance(7900);
+      expect(beats.length).toBe(8);
+      expect(clicks.length).toBe(4);
+      expect(clicks.map((c) => c.time)).toEqual([0, 2, 4, 6].map((n) => beats[n].audioTime));
+    });
+
+    it('accented beat 1 is dropped like any other click', () => {
+      const s = withRandom([0.9, 0.1, 0.1, 0.1]);
+      s.start(settings(60, 60, 5, 4), (e) => beats.push(e), { audibleChance: 0.5 });
+      clock.advance(3900);
+      expect(beats.map((b) => b.beat)).toEqual([1, 2, 3, 4]);
+      expect(clicks.every((c) => !c.accent)).toBe(true);
+      expect(clicks.length).toBe(3);
+    });
+
+    it('at 0% the count-in still sounds, then silence while beats keep firing', () => {
+      const s = withRandom([0]);
+      s.start(settings(60, 60, 5, 4), (e) => beats.push(e), { countIn: true, audibleChance: 0 });
+      clock.advance(11900);
+      expect(beats.length).toBe(12);
+      expect(clicks.length).toBe(4);
+      expect(clicks.every((c) => c.countIn)).toBe(true);
+    });
+
+    it('at 100% (and by default) every click plays without drawing', () => {
+      const random = vi.fn(() => 0.999);
+      const s = new Scheduler(
+        clock,
+        clock,
+        (_ctx, time, accent, countIn) => {
+          clicks.push({ time, accent, countIn, cancelled: false });
+          return { cancel: () => undefined };
+        },
+        random,
+      );
+      s.start(settings(60, 60, 5, 4), (e) => beats.push(e), { audibleChance: 1 });
+      clock.advance(3900);
+      s.start(settings(60, 60, 5, 4), (e) => beats.push(e));
+      clock.advance(3900);
+      expect(clicks.length).toBe(beats.length);
+      expect(random).not.toHaveBeenCalled();
+    });
+
+    it('stop only cancels clicks that were actually scheduled', () => {
+      const s = withRandom([0.2, 0.3]);
+      // 3000 BPM: three beats (0.05, 0.07, 0.09 s) fall inside the first look-ahead.
+      s.start(settings(3000, 3000, 5, 4), (e) => beats.push(e), { audibleChance: 0.25 });
+      expect(beats.length).toBe(3);
+      expect(clicks.length).toBe(2);
+      s.stop();
+      expect(clicks.every((c) => c.cancelled)).toBe(true);
+    });
+  });
+
   it('uses a ~25 ms tick', () => {
     expect(TICK_MS).toBe(25);
     expect(LOOKAHEAD_S).toBe(0.1);
